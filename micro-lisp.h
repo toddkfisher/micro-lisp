@@ -1,4 +1,4 @@
-enum {
+enum VALUE_TYPE {
     V_INT,
     V_SYMBOL,
     V_CONS_CELL,
@@ -7,14 +7,15 @@ enum {
     V_UNALLOCATED
 };
 
-typedef struct _LISP_VALUE {
-#   define TYPE_BITMASK 0x7  // lower 3 bits are type.
-#   define GC_MARK_BITMASK (1 << 3)
-    unsigned value_bits;
+typedef struct _LISP_VALUE LISP_VALUE;
+struct _LISP_VALUE {
+    unsigned gc_mark;
+    unsigned value_type;
     union {
         // V_INT
         int intnum;
         // V_SYMBOL
+        // Symbol names occupy the same size as two pointers.
 #       define SYM_SIZE (2*sizeof(void *))
         char symbol[SYM_SIZE];
         // V_CONS_CELL
@@ -24,7 +25,7 @@ typedef struct _LISP_VALUE {
         // V_UNALLOCATED
         struct _LISP_VALUE *next_free;
     };
-} LISP_VALUE;
+};
 
 void print_lisp_value(LISP_VALUE *val, int nest_level, int has_items_following);
 void next_char(void);
@@ -33,9 +34,9 @@ LISP_VALUE *read_symbol(void);
 LISP_VALUE *read_intnum(void);
 LISP_VALUE *read_list(void);
 LISP_VALUE *read_lisp_value(void);
-void gc_walk(
+LISP_VALUE *new_value(int value_type);
 
-#define IS_TYPE(val, type) (((val)->value_bits & TYPE_BITMASK) == type)
+#define IS_TYPE(val, type) ((val)->value_type == type)
 #define IS_MARKED(val) ((val)->value_bits & ~TYPE_BITMASK)
 #define IS_WHITESPACE(c) (' ' == (c) || '\t' == (c) ||'\n' == (c))
 #define IS_DIGIT(c) IN_RANGE((c), '0', '9')
@@ -45,4 +46,4 @@ void gc_walk(
                        IN_RANGE((c), 'A', 'Z') || \
                        IS_DIGIT((c))
 #define MAX_VALUES 4   // size of mem[] array.
-#define MAX_PROTECTED 10 // size of protect_stack[]                                             
+#define MAX_PROTECTED 10 // size of protect_stack[]
