@@ -39,6 +39,7 @@ void protect_from_gc(LISP_VALUE *v);
 void unprotect_from_gc(void);
 void mark(void);
 void gc_walk(LISP_VALUE *v);
+void dump_protect_stack(void);
 
 #define IS_TYPE(val, type) ((val)->value_type == type)
 #define IS_MARKED(val) ((val)->value_bits & ~TYPE_BITMASK)

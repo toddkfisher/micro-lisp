@@ -159,10 +159,21 @@ int n_free_values = 0;
 LISP_VALUE *protect_stack[MAX_PROTECTED];
 int protect_stack_ptr = 0;
 
+void dump_protect_stack(void)
+{
+  int i;
+  printf("---Protect stack:\n");
+  for (i = 0; i < protect_stack_ptr; ++i) {
+    printf("Slot #%d, addr %p\n", protect_stack[i] - mem, protect_stack[i]);
+  }
+  printf("---\n");
+}
+
 void gc(void)
 {
   printf("Garbage collecting...\n");
   mark();
+  dump_protect_stack();
 //  sweep();
 //  collect();
   printf("Available values/cons cells = %d\n", n_free_values);
