@@ -78,14 +78,15 @@ LISP_VALUE *read_symbol(void)
   LISP_VALUE *ret = new_value(V_SYMBOL);
   while (IS_ALPHANUM(current_char)) {
     if (n < SYM_SIZE - 1) {
-      ret->symbol[n++] = current_char;
-      ret->symbol[n + 1] = '\0';
+      ret->symbol[n] = current_char;
+      ret->symbol[++n] = '\0';
     }
     next_char();
   }
   if (STREQ(ret->symbol, "nil")) {
     ret->value_type = V_NIL;
   }
+  printf("symbol=%s\n", ret->symbol);
   return ret;
 }
 
@@ -131,6 +132,7 @@ LISP_VALUE *read_list(void)
 {
   LISP_VALUE *ret = new_value(V_CONS_CELL);
   LISP_VALUE *left, *right, *curr;
+  protect_from_gc(ret);
   nest_level += 1;
   next_char();  // skip '('
   skip_blanks();
@@ -147,6 +149,7 @@ LISP_VALUE *read_list(void)
   next_char();   // skip ')'
   curr->value_type = V_NIL;
   nest_level -= 1;
+  unprotect_from_gc();
   return ret;
 }
 
@@ -156,70 +159,108 @@ int n_free_values = 0;
 LISP_VALUE *protect_stack[MAX_PROTECTED];
 int protect_stack_ptr = 0;
 
-#if 0
+void gc(void)
+{
+  printf("Garbage collecting...\n");
+  mark();
+//  sweep();
+//  collect();
+  printf("Available values/cons cells = %d\n", n_free_values);
+}
+
 void mark(void)
 {
   int i;
+  printf("Marking gc_mark = 0 on all values...");
   for (i = 0; i < MAX_VALUES; ++i) {
     // Zero out marked bit.  Zero mark bit means "collect"
-    mem[i].value_bits &= TYPE_BITMASK;
+    mem[i].gc_mark = 0;
+  }
+  printf("marked %d values/cons cells.\n", i);
+}
+
+
+void sweep(void)
+{
+  int i;
+  printf("Walking protect_stack[].  Size == %d.\n", protect_stack_ptr);
+  for (i = 0; i < protect_stack_ptr; i++) {
+    gc_walk(protect_stack[i]);
   }
 }
 
 void gc_walk(LISP_VALUE *v)
 {
-  if (!(v->value_bits & !TYPE_BITMASK)) {
-  }
-
-  void sweep(void)
-  {
-    int i;
-    for (i = 0; i < MAX_PROTECTED; i++) {
-      gc_walk(protect_stack[i]);
+  if (!v->gc_mark) {
+    v->gc_mark = 1;
+    switch (v->value_type) {
+      case V_INT:
+      case V_SYMBOL:
+      case V_NIL:
+        break;
+      case V_CONS_CELL:
+        gc_walk(v->car);
+        gc_walk(v->cdr);
+        break;
+      case V_CLOSURE:
+        gc_walk(v->env);
+        gc_walk(v->code);
+        break;
+      case V_UNALLOCATED:
+        printf("gc_walk() on V_UNALLOCATED.\n");
+        exit(0);
+        break;
     }
   }
+}
 
-  void collect(void)
-  {
-    int i;
-    LISP_VALUE *last = NULL;
-    free_list_head = NULL;
-    for (i = 0; i < MAX_VALUES; i++) {
-      if (mem[i].value_bits & ~TYPE_BITMASK) {
-        if (NULL == free_list_head) {
-          free_list_head = &mem[i];
-          free_list_head->next_free = NULL;
-          last = free_list_head;
-        } else {
-          last->next_free = &mem[i];
-          last->next_free->next_free = NULL;
-          last = last->next_free;
-        }
+#if 0
+void collect(void)
+{
+  int i;
+  LISP_VALUE *last = NULL;
+  free_list_head = NULL;
+  for (i = 0; i < MAX_VALUES; i++) {
+    if (mem[i].value_bits & ~TYPE_BITMASK) {
+      if (NULL == free_list_head) {
+        free_list_head = &mem[i];
+        free_list_head->next_free = NULL;
+        last = free_list_head;
+      } else {
+        last->next_free = &mem[i];
+        last->next_free->next_free = NULL;
+        last = last->next_free;
       }
     }
   }
-
-  void protect_from_gc(LISP_VALUE *v)
-  {
-    protect_stack[protect_stack_ptr++] = v;
-  }
-
-  void unprotect_from_gc(void)
-  {
-    protect_stack_ptr -= 1;
-  }
+}
 #endif
+
+void protect_from_gc(LISP_VALUE *v)
+{
+  protect_stack[protect_stack_ptr++] = v;
+}
+
+void unprotect_from_gc(void)
+{
+  protect_stack_ptr -= 1;
+}
 
 void init_free_list(void)
 {
   int i;
-  n_free_values = 0;
+  LISP_VALUE *v;
   free_list_head = &mem[0];
-  for (i = 1; i < MAX_VALUES - 1; ++i) {
+  for (i = 1; i < MAX_VALUES; ++i) {
     mem[i - 1].next_free = &mem[i];
+    mem[i - 1].value_type = V_UNALLOCATED;
   }
   mem[MAX_VALUES - 1].next_free = NULL;
-  n_free_values = MAX_VALUES;
+  mem[MAX_VALUES - 1].value_type = V_UNALLOCATED;
+  n_free_values = 0;
+  for (v = free_list_head; NULL != v; v = v->next_free) {
+    n_free_values += 1;
+  }
   printf("Available values/cons cells = %d\n", n_free_values);
 }
 
@@ -227,7 +268,7 @@ LISP_VALUE *new_value(int value_type)
 {
   LISP_VALUE *ret = free_list_head;
   if (NULL == free_list_head) {
-    //gc();
+    gc();
     if (NULL == free_list_head) {
       printf("Memory overflow.\n");
       exit(0);
@@ -236,6 +277,10 @@ LISP_VALUE *new_value(int value_type)
   }
   free_list_head = free_list_head->next_free;
   ret->value_type = value_type;
+  if (V_CONS_CELL == value_type) {
+    ret->car = ret->cdr = NULL;
+  }
+  n_free_values -= 1;
   return ret;
 }
 

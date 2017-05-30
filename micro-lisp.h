@@ -15,7 +15,7 @@ struct _LISP_VALUE {
         // V_INT
         int intnum;
         // V_SYMBOL
-        // Symbol names occupy the same size as two pointers.
+        // Symbol names occupy the same size as to pointers.
 #       define SYM_SIZE (2*sizeof(void *))
         char symbol[SYM_SIZE];
         // V_CONS_CELL
@@ -35,6 +35,10 @@ LISP_VALUE *read_intnum(void);
 LISP_VALUE *read_list(void);
 LISP_VALUE *read_lisp_value(void);
 LISP_VALUE *new_value(int value_type);
+void protect_from_gc(LISP_VALUE *v);
+void unprotect_from_gc(void);
+void mark(void);
+void gc_walk(LISP_VALUE *v);
 
 #define IS_TYPE(val, type) ((val)->value_type == type)
 #define IS_MARKED(val) ((val)->value_bits & ~TYPE_BITMASK)
@@ -45,5 +49,5 @@ LISP_VALUE *new_value(int value_type);
 #define IS_ALPHANUM(c) IN_RANGE((c), 'a', 'z') || \
                        IN_RANGE((c), 'A', 'Z') || \
                        IS_DIGIT((c))
-#define MAX_VALUES 4   // size of mem[] array.
+#define MAX_VALUES 10   // size of mem[] array.
 #define MAX_PROTECTED 10 // size of protect_stack[]
