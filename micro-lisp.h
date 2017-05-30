@@ -42,13 +42,23 @@ void gc_walk(LISP_VALUE *v);
 void dump_protect_stack(void);
 
 #define IS_TYPE(val, type) ((val)->value_type == type)
+
 #define IS_MARKED(val) ((val)->value_bits & ~TYPE_BITMASK)
+
 #define IS_WHITESPACE(c) (' ' == (c) || '\t' == (c) ||'\n' == (c))
+
 #define IS_DIGIT(c) IN_RANGE((c), '0', '9')
+
 #define IN_RANGE(x, a, b) (((a) <= (x)) && ((x) <= (b)))
+
 #define STREQ(x, y) (!strcmp((x), (y)))
+
 #define IS_ALPHANUM(c) IN_RANGE((c), 'a', 'z') || \
                        IN_RANGE((c), 'A', 'Z') || \
                        IS_DIGIT((c))
-#define MAX_VALUES 10   // size of mem[] array.
-#define MAX_PROTECTED 10 // size of protect_stack[]
+
+// size of mem[] array.
+#define MAX_VALUES 10
+
+// size of protect_stack[]
+#define MAX_PROTECTED 10

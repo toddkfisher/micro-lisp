@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include "micro-lisp.h"
 
+// enum to string map
 char *value_names[] = {
   "V_INT",
   "V_SYMBOL",
@@ -12,6 +13,30 @@ char *value_names[] = {
   "V_NIL",
   "V_UNALLOCATED"
 };
+
+// Array of values.  Everything gets stored in one (or more) of these.
+LISP_VALUE mem[MAX_VALUES];
+
+// Free list of cells from mem[].
+LISP_VALUE *free_list_head = NULL;
+
+// Counter for reporting.
+int n_free_values = 0;
+
+// Stack of cells in mem[] for which may not be collected during GC.
+// Ancestors to values on protect_stack[] are also saved from collection.
+// Note that the global environment is also protected.
+LISP_VALUE *protect_stack[MAX_PROTECTED];
+int protect_stack_ptr = 0;
+
+// Current input character not yet processed.
+char current_char = '\n';
+
+// Nesting level of lists.
+int nest_level = 0;
+
+//------------------------------------------------------------------------------
+// Read/write routines
 
 void print_lisp_value(LISP_VALUE *val, int nest_level, int has_items_following)
 {
@@ -55,9 +80,6 @@ void print_lisp_value(LISP_VALUE *val, int nest_level, int has_items_following)
     printf(" ");
   }
 }
-
-char current_char = '\n';
-int nest_level = 0;
 
 void next_char(void)
 {
@@ -162,11 +184,8 @@ LISP_VALUE *read_list(void)
   return ret;
 }
 
-LISP_VALUE mem[MAX_VALUES];
-LISP_VALUE *free_list_head = NULL;
-int n_free_values = 0;
-LISP_VALUE *protect_stack[MAX_PROTECTED];
-int protect_stack_ptr = 0;
+//------------------------------------------------------------------------------
+// Memory/gc-related routines.
 
 void dump_protect_stack(void)
 {
