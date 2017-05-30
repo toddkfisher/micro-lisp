@@ -4,6 +4,15 @@
 #include <ctype.h>
 #include "micro-lisp.h"
 
+char *value_names[] = {
+  "V_INT",
+  "V_SYMBOL",
+  "V_CONS_CELL",
+  "V_CLOSURE",
+  "V_NIL",
+  "V_UNALLOCATED"
+};
+
 void print_lisp_value(LISP_VALUE *val, int nest_level, int has_items_following)
 {
   switch (val->value_type)
@@ -174,8 +183,8 @@ void gc(void)
   printf("Garbage collecting...\n");
   mark();
   dump_protect_stack();
-//  sweep();
-//  collect();
+  sweep();
+  collect();
   printf("Available values/cons cells = %d\n", n_free_values);
 }
 
@@ -190,49 +199,61 @@ void mark(void)
   printf("marked %d values/cons cells.\n", i);
 }
 
-
 void sweep(void)
 {
   int i;
   printf("Walking protect_stack[].  Size == %d.\n", protect_stack_ptr);
   for (i = 0; i < protect_stack_ptr; i++) {
+    printf("Walking protect_stack[%d] ==%p.\n", i, protect_stack[i]);
     gc_walk(protect_stack[i]);
   }
 }
 
 void gc_walk(LISP_VALUE *v)
 {
-  if (!v->gc_mark) {
-    v->gc_mark = 1;
-    switch (v->value_type) {
-      case V_INT:
-      case V_SYMBOL:
-      case V_NIL:
-        break;
-      case V_CONS_CELL:
-        gc_walk(v->car);
-        gc_walk(v->cdr);
-        break;
-      case V_CLOSURE:
-        gc_walk(v->env);
-        gc_walk(v->code);
-        break;
-      case V_UNALLOCATED:
-        printf("gc_walk() on V_UNALLOCATED.\n");
-        exit(0);
-        break;
+  if (NULL != v) {
+    printf("gc_walk(slot == %d, ptr == %p) : ", v - mem, v);
+    if (!v->gc_mark) {
+      printf("not visited - to be saved.\n");
+      v->gc_mark = 1;
+      printf("Type == %s.", value_names[v->value_type]);
+      switch (v->value_type) {
+        case V_INT:
+        case V_SYMBOL:
+        case V_NIL:
+          break;
+        case V_CONS_CELL:
+          printf("Walking car.\n");
+          gc_walk(v->car);
+          printf("Walking cdr.\n");
+          gc_walk(v->cdr);
+          break;
+        case V_CLOSURE:
+          printf("Walking env.\n");
+          gc_walk(v->env);
+          printf("Walking code.\n");
+          gc_walk(v->code);
+          break;
+        case V_UNALLOCATED:
+          printf("gc_walk() on V_UNALLOCATED.\n");
+          exit(0);
+          break;
+      }
+    } else {
+      printf("visited.\n");
     }
   }
 }
 
-#if 0
 void collect(void)
 {
   int i;
   LISP_VALUE *last = NULL;
   free_list_head = NULL;
+  n_free_values = 0;
   for (i = 0; i < MAX_VALUES; i++) {
-    if (mem[i].value_bits & ~TYPE_BITMASK) {
+    if (!mem[i].gc_mark) {
+      n_free_values += 1;
       if (NULL == free_list_head) {
         free_list_head = &mem[i];
         free_list_head->next_free = NULL;
@@ -245,7 +266,6 @@ void collect(void)
     }
   }
 }
-#endif
 
 void protect_from_gc(LISP_VALUE *v)
 {

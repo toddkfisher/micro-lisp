@@ -1,4 +1,4 @@
-enum VALUE_TYPE {
+enum {
     V_INT,
     V_SYMBOL,
     V_CONS_CELL,
