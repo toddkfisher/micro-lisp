@@ -334,6 +334,45 @@ LISP_VALUE *new_value(int value_type)
   return ret;
 }
 
+//------------------------------------------------------------------------------
+// Environment-related routines
+//
+// The format of an environment is: (var-name var-value . <outer environment>)
+//
+// Note that variable update involves the "impure" operation of setting an
+// environment's cadr.
+//
+
+LISP_VALUE *cons(LISP_VALUE *x, LISP_VALUE *y)
+{
+  LISP_VALUE *res = new_value(V_CONS_CELL);
+  res->car = x;
+  res->cdr = y;
+  return res;
+}
+
+LISP_VALUE *env_extend(LISP_VALUE *var_name, LISP_VALUE *var_value,
+                       LISP_VALUE *outer_env)
+{
+  LISP_VALUE *part1, *part2;
+  part1 = cons(var_value, outer_env);
+  protect_from_gc(part1);
+  part2 = cons(var_name, part1);
+  unprotect_from_gc();
+  return part2;
+}
+
+int sym_eq(LISP_VALUE *x, LISP_VALUE *y)
+{
+  if (!IS_TYPE(x, V_SYMBOL) || !IS_TYPE(y, V_SYMBOL)) {
+    return 0;
+  } else {
+    return STR_EQ(x->symbol, y->symbol);
+  }
+}
+
+LISP_VALUE *env_fetch(LISP_VALUE
+
 int main(int argc, char **argv)
 {
   LISP_VALUE *x;
