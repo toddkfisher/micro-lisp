@@ -29,11 +29,10 @@ long_line_column=80
 
 [files]
 current_page=0
-FILE_NAME_0=3817;C;0;EUTF-8;0;1;0;%2Fhome%2Ftodd%2Fprojects%2Fmicro-lisp%2Fmicro-lisp.c;0;4
-FILE_NAME_1=1016;C;0;EUTF-8;0;1;0;%2Fhome%2Ftodd%2Fprojects%2Fmicro-lisp%2Fmicro-lisp.h;0;4
+FILE_NAME_0=1431;C;0;EUTF-8;0;1;0;%2Fhome%2Ftodd%2Fprojects%2Fmicro-lisp%2Fmicro-lisp.c;0;4
 
 [VTE]
-last_dir=/media/todd/7A3B-12E2/micro-lisp
+last_dir=/home/todd
 
 [prjorg]
 source_patterns=*.c;*.C;*.cpp;*.cxx;*.c++;*.cc;*.m;
