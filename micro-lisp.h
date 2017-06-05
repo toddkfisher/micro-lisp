@@ -27,21 +27,6 @@ struct _LISP_VALUE {
     };
 };
 
-void print_lisp_value(LISP_VALUE *val, int nest_level, int has_items_following);
-void next_char(void);
-void skip_blanks(void);
-LISP_VALUE *read_symbol(void);
-LISP_VALUE *read_intnum(void);
-LISP_VALUE *read_list(void);
-LISP_VALUE *read_lisp_value(void);
-LISP_VALUE *new_value(int value_type);
-void protect_from_gc(LISP_VALUE *v);
-void unprotect_from_gc(void);
-void mark(void);
-void sweep(void);
-void collect(void);
-void gc_walk(LISP_VALUE *v);
-void dump_protect_stack(void);
 
 #define IS_TYPE(val, type) ((val)->value_type == type)
 #define IS_MARKED(val) ((val)->value_bits & ~TYPE_BITMASK)
@@ -58,3 +43,25 @@ void dump_protect_stack(void);
 
 // size of protect_stack[]
 #define MAX_PROTECTED 10
+
+void print_lisp_value(LISP_VALUE *val, int nest_level, int has_items_following);
+void next_char(void);
+void skip_blanks(void);
+LISP_VALUE *read_symbol(void);
+LISP_VALUE *read_intnum(void);
+LISP_VALUE *read_list(void);
+LISP_VALUE *read_lisp_value(void);
+LISP_VALUE *new_value(int value_type);
+void protect_from_gc(LISP_VALUE *v);
+void unprotect_from_gc(void);
+void mark(void);
+void sweep(void);
+void collect(void);
+void gc_walk(LISP_VALUE *v);
+void dump_protect_stack(void);
+LISP_VALUE *env_extend(LISP_VALUE *var_name, LISP_VALUE *var_value,
+                       LISP_VALUE *outer_env);
+LISP_VALUE *env_search(LISP_VALUE *name, LISP_VALUE *env);
+LISP_VALUE *env_fetch(LISP_VALUE *name, LISP_VALUE *env);
+LISP_VALUE *env_set(LISP_VALUE *name, LISP_VALUE *val, LISP_VALUE *env);
+

@@ -41,6 +41,11 @@ int nest_level = 0;
 void error(char *msg)
 {
     fprintf(stderr, "ERROR: %s\n", msg);
+}
+
+void fatal(char *msg)
+{
+    fprintf(stderr, "FATAL: %s\n", msg);
     exit(1);
 }
 
@@ -51,25 +56,13 @@ LISP_VALUE *set_car(LISP_VALUE *x, LISP_VALUE *y)
 
 LISP_VALUE *set_cadr(LISP_VALUE *x, LISP_VALUE *y)
 {
-    if (NULL == x) {
-        error("set_cadr() applied to NULL.\n");
-    }
-    if (!IS_TYPE(x, V_CONS_CELL)) {
-        error("set_cadr() applied to atom.\n");
-    }
-    if (!IS_TYPE(x->cdr, V_CONS_CELL)) {
-        error("set_cadr() applied to atom.\n");
-    }
     return x->car->cdr = y;
 }
 
 int sym_eq(LISP_VALUE *x, LISP_VALUE *y)
 {
-    if (!IS_TYPE(x, V_SYMBOL) || !IS_TYPE(y, V_SYMBOL)) {
-        return 0;
-    } else {
-        return STREQ(x->symbol, y->symbol);
-    }
+    return STREQ(x->symbol, y->symbol);
+    
 }
 
 LISP_VALUE *cons(LISP_VALUE *x, LISP_VALUE *y)
@@ -82,22 +75,11 @@ LISP_VALUE *cons(LISP_VALUE *x, LISP_VALUE *y)
 
 LISP_VALUE *car(LISP_VALUE *x)
 {
-    if (NULL == x) {
-        error("car() attempted on NULL value.\n");
-    } else if (!IS_TYPE(x, V_CONS_CELL)) {
-        error("car() attempted on atomic/unallocated value.\n");
-    }
     return x->car;
 }
 
-
 LISP_VALUE *cdr(LISP_VALUE *x)
 {
-    if (NULL == x) {
-        error("cdr attempted on NULL value.\n");
-    } else if (!IS_TYPE(x, V_CONS_CELL)) {
-        error("cdr attempted on atomic/unallocated value.\n");
-    }
     return x->cdr;
 }
 
@@ -138,7 +120,7 @@ void print_lisp_value(LISP_VALUE *val, int nest_level, int has_items_following)
             }
             break;
         default:
-            error("Unknown lisp type.\n");
+            fatal("Unknown lisp type.\n");
             break;
     }
     if (has_items_following) {
@@ -317,7 +299,7 @@ void gc_walk(LISP_VALUE *v)
                     gc_walk(v->code);
                     break;
                 case V_UNALLOCATED:
-                    error("gc_walk() on V_UNALLOCATED.\n");
+                    fatal("gc_walk() on V_UNALLOCATED.\n");
                     break;
             }
         } else {
@@ -382,7 +364,7 @@ LISP_VALUE *new_value(int value_type)
     if (NULL == free_list_head) {
         gc();
         if (NULL == free_list_head) {
-            error("Memory overflow.\n");
+            fatal("Memory overflow.\n");
         }
         ret = free_list_head;
     }
@@ -413,18 +395,37 @@ LISP_VALUE *env_extend(LISP_VALUE *var_name, LISP_VALUE *var_value,
     part2 = cons(var_name, part1);
     unprotect_from_gc();
     return part2;
+    gtk
+}
+
+LISP_VALUE *env_search(LISP_VALUE *name, LISP_VALUE *env)
+{
+    if (NULL != env) {
+        if (sym_eq(car(env), name)) {
+            return env;
+        } else {
+            return env_search(name, cdr(cdr(env)));
+        }
+    }
+    return NULL;
 }
 
 LISP_VALUE *env_fetch(LISP_VALUE *name, LISP_VALUE *env)
 {
-    if (NULL != env) {
-        if (sym_eq(car(env), name)) {
-            return car(cdr(env));
-        } else {
-            return env_fetch(name, cdr(cdr(env)));
-        }
+    LISP_VALUE *e = env_search(name, env);
+    if (NULL != e) {
+        return car(cdr(e));
     }
     return NULL;
+} 
+
+LISP_VALUE *env_set(LISP_VALUE *name, LISP_VALUE *val, LISP_VALUE *env)
+{
+    LISP_VALUE *e = env_search(name, env);
+    if (NULL != e) {
+        e->cdr->car = val;
+    }
+    return val;
 }
 
 int main(int argc, char **argv)
