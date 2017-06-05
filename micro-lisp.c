@@ -38,12 +38,18 @@ int nest_level = 0;
 //------------------------------------------------------------------------------
 // Utility functions
 
-void set_car(LISP_VALUE *x, LISP_VALUE *y)
+void error(char *msg)
 {
-    x->car = y;
+    fprintf(stderr, "ERROR: %s\n", msg);
+    exit(1);
 }
 
-void set_cadr(LISP_VALUE *x, LISP_VALUE *y)
+LISP_VALUE *set_car(LISP_VALUE *x, LISP_VALUE *y)
+{
+    return x->car = y;
+}
+
+LISP_VALUE *set_cadr(LISP_VALUE *x, LISP_VALUE *y)
 {
     if (NULL == x) {
         error("set_cadr() applied to NULL.\n");
@@ -51,6 +57,10 @@ void set_cadr(LISP_VALUE *x, LISP_VALUE *y)
     if (!IS_TYPE(x, V_CONS_CELL)) {
         error("set_cadr() applied to atom.\n");
     }
+    if (!IS_TYPE(x->cdr, V_CONS_CELL)) {
+        error("set_cadr() applied to atom.\n");
+    }
+    return x->car->cdr = y;
 }
 
 int sym_eq(LISP_VALUE *x, LISP_VALUE *y)
@@ -60,7 +70,6 @@ int sym_eq(LISP_VALUE *x, LISP_VALUE *y)
     } else {
         return STREQ(x->symbol, y->symbol);
     }
-
 }
 
 LISP_VALUE *cons(LISP_VALUE *x, LISP_VALUE *y)
@@ -79,6 +88,17 @@ LISP_VALUE *car(LISP_VALUE *x)
         error("car() attempted on atomic/unallocated value.\n");
     }
     return x->car;
+}
+
+
+LISP_VALUE *cdr(LISP_VALUE *x)
+{
+    if (NULL == x) {
+        error("cdr attempted on NULL value.\n");
+    } else if (!IS_TYPE(x, V_CONS_CELL)) {
+        error("cdr attempted on atomic/unallocated value.\n");
+    }
+    return x->cdr;
 }
 
 //------------------------------------------------------------------------------
@@ -118,8 +138,7 @@ void print_lisp_value(LISP_VALUE *val, int nest_level, int has_items_following)
             }
             break;
         default:
-            printf("Unknown lisp type.\n");
-            exit(0);
+            error("Unknown lisp type.\n");
             break;
     }
     if (has_items_following) {
@@ -176,8 +195,7 @@ LISP_VALUE *read_intnum(void)
         next_char();
     }
     if (!IS_DIGIT(current_char)) {
-        printf("Error reading integer.\n");
-        exit(0);
+        error("Error reading integer.\n");
     }
     while (IS_DIGIT(current_char)) {
         n = n*10 + (current_char - '0');
@@ -199,8 +217,7 @@ LISP_VALUE *read_lisp_value(void)
         return read_intnum();
 
     } else {
-        printf("Read error.\n");
-        exit(0);
+        error("Read error.\n");
     }
     return NULL;
 }
@@ -238,7 +255,7 @@ void dump_protect_stack(void)
     int i;
     printf("---Protect stack:\n");
     for (i = 0; i < protect_stack_ptr; ++i) {
-        printf("Slot #%d, addr %p\n", protect_stack[i] - mem, protect_stack[i]);
+        printf("Slot #%ld, addr %p\n", protect_stack[i] - mem, protect_stack[i]);
     }
     printf("---\n");
 }
@@ -277,7 +294,7 @@ void sweep(void)
 void gc_walk(LISP_VALUE *v)
 {
     if (NULL != v) {
-        printf("gc_walk(slot == %d, ptr == %p) : ", v - mem, v);
+        printf("gc_walk(slot == %ld, ptr == %p) : ", v - mem, v);
         if (!v->gc_mark) {
             printf("not visited - to be saved.\n");
             v->gc_mark = 1;
@@ -300,8 +317,7 @@ void gc_walk(LISP_VALUE *v)
                     gc_walk(v->code);
                     break;
                 case V_UNALLOCATED:
-                    printf("gc_walk() on V_UNALLOCATED.\n");
-                    exit(0);
+                    error("gc_walk() on V_UNALLOCATED.\n");
                     break;
             }
         } else {
@@ -366,8 +382,7 @@ LISP_VALUE *new_value(int value_type)
     if (NULL == free_list_head) {
         gc();
         if (NULL == free_list_head) {
-            printf("Memory overflow.\n");
-            exit(0);
+            error("Memory overflow.\n");
         }
         ret = free_list_head;
     }
@@ -389,16 +404,6 @@ LISP_VALUE *new_value(int value_type)
 // environment's cadr.
 //
 
-LISP_VALUE *cdr(LISP_VALUE *x)
-{
-    if (NULL == x) {
-        error("cdr attempted on NULL value.\n");
-    } else if (!IS_TYPE(x, V_CONS_CELL)) {
-        error("cdr attempted on atomic/unallocated value.\n");
-    }
-    return x->cdr;
-}
-
 LISP_VALUE *env_extend(LISP_VALUE *var_name, LISP_VALUE *var_value,
                        LISP_VALUE *outer_env)
 {
@@ -408,15 +413,6 @@ LISP_VALUE *env_extend(LISP_VALUE *var_name, LISP_VALUE *var_value,
     part2 = cons(var_name, part1);
     unprotect_from_gc();
     return part2;
-}
-
-int sym_eq(LISP_VALUE *x, LISP_VALUE *y)
-{
-    if (!IS_TYPE(x, V_SYMBOL) || !IS_TYPE(y, V_SYMBOL)) {
-        return 0;
-    } else {
-        return STR_EQ(x->symbol, y->symbol);
-    }
 }
 
 LISP_VALUE *env_fetch(LISP_VALUE *name, LISP_VALUE *env)

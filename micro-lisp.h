@@ -38,6 +38,8 @@ LISP_VALUE *new_value(int value_type);
 void protect_from_gc(LISP_VALUE *v);
 void unprotect_from_gc(void);
 void mark(void);
+void sweep(void);
+void collect(void);
 void gc_walk(LISP_VALUE *v);
 void dump_protect_stack(void);
 
