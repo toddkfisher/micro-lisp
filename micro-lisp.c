@@ -395,7 +395,6 @@ LISP_VALUE *env_extend(LISP_VALUE *var_name, LISP_VALUE *var_value,
     part2 = cons(var_name, part1);
     unprotect_from_gc();
     return part2;
-    gtk
 }
 
 LISP_VALUE *env_search(LISP_VALUE *name, LISP_VALUE *env)
