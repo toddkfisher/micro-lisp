@@ -1,2 +1,2 @@
 #!/bin/sh
-gcc -o ml micro-lisp.c && etags *.c *.h
+clang -o ml micro-lisp.c && etags *.c *.h

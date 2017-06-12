@@ -35,6 +35,10 @@ char current_char = '\n';
 // Nesting level of lists.
 int nest_level = 0;
 
+// Global environment.  Gets special treatment since everything points to
+// it.
+LISP_VALUE *global_env;
+
 //------------------------------------------------------------------------------
 // Utility functions
 
@@ -62,7 +66,7 @@ LISP_VALUE *set_cadr(LISP_VALUE *x, LISP_VALUE *y)
 int sym_eq(LISP_VALUE *x, LISP_VALUE *y)
 {
     return STREQ(x->symbol, y->symbol);
-    
+
 }
 
 LISP_VALUE *cons(LISP_VALUE *x, LISP_VALUE *y)
@@ -164,7 +168,6 @@ LISP_VALUE *read_symbol(void)
     if (STREQ(ret->symbol, "nil")) {
         ret->value_type = V_NIL;
     }
-    printf("symbol=%s\n", ret->symbol);
     return ret;
 }
 
@@ -237,7 +240,13 @@ void dump_protect_stack(void)
     int i;
     printf("---Protect stack:\n");
     for (i = 0; i < protect_stack_ptr; ++i) {
-        printf("Slot #%ld, addr %p\n", protect_stack[i] - mem, protect_stack[i]);
+        printf("%02d : slot #%ld, addr %p type %s\n", i, protect_stack[i] - mem,
+               protect_stack[i], value_names[protect_stack[i]->value_type]);
+        if (IS_ATOM(protect_stack[i])) {
+            printf("value = ");
+            print_lisp_value(protect_stack[i], 0, 0);
+            printf("\n");
+        }
     }
     printf("---\n");
 }
@@ -266,37 +275,54 @@ void mark(void)
 void sweep(void)
 {
     int i;
+    printf("Walking global_env.\n");
+    gc_walk(global_env, 0);
     printf("Walking protect_stack[].  Size == %d.\n", protect_stack_ptr);
     for (i = 0; i < protect_stack_ptr; i++) {
         printf("Walking protect_stack[%d] ==%p.\n", i, protect_stack[i]);
-        gc_walk(protect_stack[i]);
+        gc_walk(protect_stack[i], 0);
     }
 }
 
-void gc_walk(LISP_VALUE *v)
+void indent(int n)
+{
+    while (n-- > 0) {
+        printf("    ");
+    }
+}
+
+void gc_walk(LISP_VALUE *v, int depth)
 {
     if (NULL != v) {
+        indent(depth);
         printf("gc_walk(slot == %ld, ptr == %p) : ", v - mem, v);
         if (!v->gc_mark) {
             printf("not visited - to be saved.\n");
             v->gc_mark = 1;
-            printf("Type == %s.", value_names[v->value_type]);
+            indent(depth);
+            printf("type == %s", value_names[v->value_type]);
             switch (v->value_type) {
                 case V_INT:
                 case V_SYMBOL:
                 case V_NIL:
                     break;
                 case V_CONS_CELL:
-                    printf("Walking car.\n");
-                    gc_walk(v->car);
-                    printf("Walking cdr.\n");
-                    gc_walk(v->cdr);
+                    indent(depth);
+                    printf("walking car.\n");
+                    gc_walk(v->car, depth + 1);
+                    printf("\n");
+                    indent(depth);
+                    printf("walking cdr.\n");
+                    gc_walk(v->cdr, depth + 1);
                     break;
                 case V_CLOSURE:
-                    printf("Walking env.\n");
-                    gc_walk(v->env);
-                    printf("Walking code.\n");
-                    gc_walk(v->code);
+                    indent(depth);
+                    printf("walking env.\n");
+                    gc_walk(v->env, depth + 1);
+                    printf("\n");
+                    indent(depth);
+                    printf("walking code.\n");
+                    gc_walk(v->code, depth + 1);
                     break;
                 case V_UNALLOCATED:
                     fatal("gc_walk() on V_UNALLOCATED.\n");
@@ -381,6 +407,18 @@ LISP_VALUE *new_value(int value_type)
 // Environment-related routines
 //
 // The format of an environment is: (var-name var-value . <outer environment>)
+// The end of the environment chain is terminated with NIL.  Thus, environments
+// are ordinary lists which can be read and printed.
+// As an example, the expression:
+//
+//     (let ((x 1)
+//           (y 2)
+//           (z 3))
+//       (+ x y z))
+//
+// Creates an environment:
+//
+//     (z 3 y 2 x 1 . <outer env>)
 //
 // Note that variable update involves the "impure" operation of setting an
 // environment's cadr.
@@ -399,7 +437,7 @@ LISP_VALUE *env_extend(LISP_VALUE *var_name, LISP_VALUE *var_value,
 
 LISP_VALUE *env_search(LISP_VALUE *name, LISP_VALUE *env)
 {
-    if (NULL != env) {
+    if (!IS_TYPE(env, V_NIL)) {
         if (sym_eq(car(env), name)) {
             return env;
         } else {
@@ -416,7 +454,7 @@ LISP_VALUE *env_fetch(LISP_VALUE *name, LISP_VALUE *env)
         return car(cdr(e));
     }
     return NULL;
-} 
+}
 
 LISP_VALUE *env_set(LISP_VALUE *name, LISP_VALUE *val, LISP_VALUE *env)
 {
@@ -427,15 +465,85 @@ LISP_VALUE *env_set(LISP_VALUE *name, LISP_VALUE *val, LISP_VALUE *env)
     return val;
 }
 
+// This function may not be called after any closure creation since
+// it modifies global_env and (an|the) outer environment of all closures
+// is global.  Also: this function does not prevent duplicate names
+// from being added to global_env.
+void global_env_init(LISP_VALUE *name, LISP_VALUE *value)
+{
+    LISP_VALUE *value_part;
+    protect_from_gc(name);
+    protect_from_gc(value);
+    value_part = cons(value, global_env);
+    global_env = cons(name, value_part);
+    unprotect_from_gc();
+    unprotect_from_gc();
+}
+
+// This function may be safely called after any closure creation.
+// global_env must contain at least one name/value pair.
+void global_env_extend(LISP_VALUE *name, LISP_VALUE *value)
+{
+    LISP_VALUE *tmp0, *tmp1;
+    protect_from_gc(name);  // name
+    protect_from_gc(value); // value name
+    tmp0 = cons(value, global_env->cdr->cdr);
+    // value will be protected when tmp0 is protected, so it
+    // may be safely unprotected now.
+    unprotect_from_gc();  // name
+    protect_from_gc(tmp0); // tmp0 name
+    tmp1 = cons(name, tmp0);
+    unprotect_from_gc();  // name
+    unprotect_from_gc();  //
+    global_env->cdr->cdr = tmp1;
+}
+
+//------------------------------------------------------------------------------
+
 int main(int argc, char **argv)
 {
-    LISP_VALUE *x;
+    LISP_VALUE *name, *value;
+    char cmd;
     init_free_list();
+    global_env = new_value(V_NIL);
     for (;;) {
-        x = read_lisp_value();
-        printf("Value=");
-        print_lisp_value(x, 0, 0);
-        printf("\n");
+        printf("(s)et var, (g)et var, (p)rint env, (q)uit:");
+        do {
+            cmd = getchar();
+        } while(IS_WHITESPACE(cmd));
+        // to prevent double-printing '>' prompt at lisp read
+        current_char = ' ';
+        switch (cmd) {
+            case 's':
+                printf("enter new name\n");
+                name = read_lisp_value();
+                if (!IS_TYPE(name, V_SYMBOL)) {
+                    printf("symbol expected\n");
+                } else {
+                    printf("enter value\n");
+                    value = read_lisp_value();
+                    if (NULL == env_search(name, global_env)) {
+                        printf("name doesn't exist. extending global_env\n");
+                        fflush(stdin);
+                        global_env_init(name, value);
+                    } else {
+                        env_set(name, value, global_env);
+                    }
+                }
+                break;
+            case 'g':
+                break;
+            case 'p':
+                print_lisp_value(global_env, 0, 0);
+                printf("\n");
+                break;
+            case 'q':
+                exit(0);
+                break;
+            default:
+                printf("? (%c)\n", cmd);
+                break;
+        }
     }
     exit(0);
 }

@@ -29,6 +29,8 @@ struct _LISP_VALUE {
 
 
 #define IS_TYPE(val, type) ((val)->value_type == type)
+#define IS_ATOM(val) (IS_TYPE(val, V_INT) || IS_TYPE(val, V_SYMBOL) || \
+                      IS_TYPE(val, V_NIL))
 #define IS_MARKED(val) ((val)->value_bits & ~TYPE_BITMASK)
 #define IS_WHITESPACE(c) (' ' == (c) || '\t' == (c) ||'\n' == (c))
 #define IS_DIGIT(c) IN_RANGE((c), '0', '9')
@@ -57,11 +59,10 @@ void unprotect_from_gc(void);
 void mark(void);
 void sweep(void);
 void collect(void);
-void gc_walk(LISP_VALUE *v);
+void gc_walk(LISP_VALUE *v, int depth);
 void dump_protect_stack(void);
 LISP_VALUE *env_extend(LISP_VALUE *var_name, LISP_VALUE *var_value,
                        LISP_VALUE *outer_env);
 LISP_VALUE *env_search(LISP_VALUE *name, LISP_VALUE *env);
 LISP_VALUE *env_fetch(LISP_VALUE *name, LISP_VALUE *env);
 LISP_VALUE *env_set(LISP_VALUE *name, LISP_VALUE *val, LISP_VALUE *env);
-
