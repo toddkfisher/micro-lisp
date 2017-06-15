@@ -358,11 +358,14 @@ void collect(void)
 
 void protect_from_gc(LISP_VALUE *v)
 {
+    printf("protect_from_gc %s\n", value_names[v->value_type]);
     protect_stack[protect_stack_ptr++] = v;
 }
 
 void unprotect_from_gc(void)
 {
+    printf("unprotect_from_gc %s\n",
+           value_names[protect_stack[protect_stack_ptr - 1]->value_type]);
     protect_stack_ptr -= 1;
 }
 
@@ -472,11 +475,9 @@ LISP_VALUE *env_set(LISP_VALUE *name, LISP_VALUE *val, LISP_VALUE *env)
 void global_env_init(LISP_VALUE *name, LISP_VALUE *value)
 {
     LISP_VALUE *value_part;
-    protect_from_gc(name);
-    protect_from_gc(value);
     value_part = cons(value, global_env);
+    protect_from_gc(value_part);
     global_env = cons(name, value_part);
-    unprotect_from_gc();
     unprotect_from_gc();
 }
 
@@ -520,8 +521,10 @@ int main(int argc, char **argv)
                 if (!IS_TYPE(name, V_SYMBOL)) {
                     printf("symbol expected\n");
                 } else {
+                    protect_from_gc(name);
                     printf("enter value\n");
                     value = read_lisp_value();
+                    protect_from_gc(value);
                     if (NULL == env_search(name, global_env)) {
                         printf("name doesn't exist. extending global_env\n");
                         fflush(stdin);
@@ -529,6 +532,8 @@ int main(int argc, char **argv)
                     } else {
                         env_set(name, value, global_env);
                     }
+                    unprotect_from_gc();
+                    unprotect_from_gc();
                 }
                 break;
             case 'g':
