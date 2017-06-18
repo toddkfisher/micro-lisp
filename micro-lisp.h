@@ -41,10 +41,10 @@ struct _LISP_VALUE {
                        IS_DIGIT((c))
 
 // size of mem[] array.
-#define MAX_VALUES 10
+#define MAX_VALUES 100000
 
 // size of protect_stack[]
-#define MAX_PROTECTED 10
+#define MAX_PROTECTED 1024
 
 void print_lisp_value(LISP_VALUE *val, int nest_level, int has_items_following);
 void next_char(void);

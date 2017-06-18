@@ -500,6 +500,15 @@ void global_env_extend(LISP_VALUE *name, LISP_VALUE *value)
 }
 
 //------------------------------------------------------------------------------
+// Eval-related and built-in functions.
+
+//LISP_VALUE *eval(LISP_VALUE *expr, LISP_VALUE *env)
+//{
+//    if (IS_SELF_EVAUATING(expr)) {
+//        return expr;
+//    } else if (IS_TYPE(expr, V_SYMBOL)) {
+//        return env_fetch(expr, env);
+//    } else if (
 
 int main(int argc, char **argv)
 {
@@ -537,6 +546,15 @@ int main(int argc, char **argv)
                 }
                 break;
             case 'g':
+                name = read_lisp_value();
+                protect_from_gc(name);
+                if (NULL != (value = env_fetch(name, global_env))) {
+                    printf("value = ");
+                    print_lisp_value(value, 0, 0);
+                    printf("\n");
+                } else {
+                    printf("not found\n");
+                }
                 break;
             case 'p':
                 print_lisp_value(global_env, 0, 0);
