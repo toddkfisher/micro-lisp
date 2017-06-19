@@ -1,10 +1,10 @@
 enum {
-    V_INT,
-    V_SYMBOL,
-    V_CONS_CELL,
-    V_CLOSURE,
-    V_NIL,
-    V_UNALLOCATED
+    V_INT         = 0x01,
+    V_SYMBOL      = 0x02,
+    V_CONS_CELL   = 0x04,
+    V_CLOSURE     = 0x08,
+    V_NIL         = 0x09,
+    V_UNALLOCATED = 0x0a
 };
 
 typedef struct _LISP_VALUE LISP_VALUE;
@@ -28,7 +28,7 @@ struct _LISP_VALUE {
 };
 
 
-#define IS_TYPE(val, type) ((val)->value_type == type)
+f#define IS_TYPE(val, type) ((val)->value_type & type)
 #define IS_ATOM(val) (IS_TYPE(val, V_INT) || IS_TYPE(val, V_SYMBOL) || \
                       IS_TYPE(val, V_NIL))
 #define IS_MARKED(val) ((val)->value_bits & ~TYPE_BITMASK)
@@ -36,9 +36,13 @@ struct _LISP_VALUE {
 #define IS_DIGIT(c) IN_RANGE((c), '0', '9')
 #define IN_RANGE(x, a, b) (((a) <= (x)) && ((x) <= (b)))
 #define STREQ(x, y) (!strcmp((x), (y)))
-#define IS_ALPHANUM(c) IN_RANGE((c), 'a', 'z') || \
-                       IN_RANGE((c), 'A', 'Z') || \
-                       IS_DIGIT((c))
+#define IS_ALPHANUM(c)                          \
+    IN_RANGE((c), 'a', 'z') ||                  \
+    IN_RANGE((c), 'A', 'Z') ||                  \
+    IS_DIGIT((c))
+#define KW_EQ(x, strconst)                                      \
+    (IS_TYPE((x), V_SYMBOL) && STREQ((x)->symbol, (strconst)))
+#define IS_SELF_EVAUATING(x) (IS_TYPE(x, V_INT) || IS_TYPE(x, V_NIL))
 
 // size of mem[] array.
 #define MAX_VALUES 100000
@@ -46,7 +50,7 @@ struct _LISP_VALUE {
 // size of protect_stack[]
 #define MAX_PROTECTED 1024
 
-void print_lisp_value(LISP_VALUE *val, int nest_level, int has_items_following);
+void print_lisp_value(LISP_VALUE *val, int print_newline);
 void next_char(void);
 void skip_blanks(void);
 LISP_VALUE *read_symbol(void);
