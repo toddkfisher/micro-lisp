@@ -53,26 +53,22 @@ void fatal(char *msg)
     exit(1);
 }
 
-LISP_VALUE *set_car(LISP_VALUE *x,
-                    LISP_VALUE *y)
+LISP_VALUE *set_car(LISP_VALUE *x, LISP_VALUE *y)
 {
     return x->car = y;
 }
 
-LISP_VALUE *set_cadr(LISP_VALUE *x,
-                     LISP_VALUE *y)
+LISP_VALUE *set_cadr(LISP_VALUE *x, LISP_VALUE *y)
 {
     return x->car->cdr = y;
 }
 
-int sym_eq(LISP_VALUE *x,
-           LISP_VALUE *y)
+int sym_eq(LISP_VALUE *x, LISP_VALUE *y)
 {
     return STREQ(x->symbol, y->symbol);
 }
 
-LISP_VALUE *cons(LISP_VALUE *x,
-                 LISP_VALUE *y)
+LISP_VALUE *cons(LISP_VALUE *x, LISP_VALUE *y)
 {
     LISP_VALUE *res = new_value(V_CONS_CELL);
     res->car = x;
@@ -98,8 +94,7 @@ LISP_VALUE *cadr(LISP_VALUE *x)
 //------------------------------------------------------------------------------
 // Read/write routines
 
-void print_lisp_value_aux(LISP_VALUE *val,
-                          int nest_level,
+void print_lisp_value_aux(LISP_VALUE *val, int nest_level,
                           int has_items_following)
 {
     switch (val->value_type)
@@ -142,8 +137,7 @@ void print_lisp_value_aux(LISP_VALUE *val,
     }
 }
 
-void print_lisp_value(LISP_VALUE *val,
-                      int print_newline)
+void print_lisp_value(LISP_VALUE *val, int print_newline)
 {
     print_lisp_value_aux(val, 0, 0);
     if (print_newline) {
@@ -309,8 +303,7 @@ void indent(int n)
     }
 }
 
-void gc_walk(LISP_VALUE *v,
-             int depth)
+void gc_walk(LISP_VALUE *v, int depth)
 {
     if (NULL != v) {
         indent(depth);
@@ -446,8 +439,7 @@ LISP_VALUE *new_value(int value_type)
 // environment's cadr.
 //
 
-LISP_VALUE *env_extend(LISP_VALUE *var_name,
-                       LISP_VALUE *var_value,
+LISP_VALUE *env_extend(LISP_VALUE *var_name, LISP_VALUE *var_value,
                        LISP_VALUE *outer_env)
 {
     LISP_VALUE *part1, *part2;
@@ -458,8 +450,7 @@ LISP_VALUE *env_extend(LISP_VALUE *var_name,
     return part2;
 }
 
-LISP_VALUE *env_search(LISP_VALUE *name,
-                       LISP_VALUE *env)
+LISP_VALUE *env_search(LISP_VALUE *name, LISP_VALUE *env)
 {
     if (!IS_TYPE(env, V_NIL)) {
         if (sym_eq(car(env), name)) {
@@ -471,8 +462,7 @@ LISP_VALUE *env_search(LISP_VALUE *name,
     return NULL;
 }
 
-LISP_VALUE *env_fetch(LISP_VALUE *name,
-                      LISP_VALUE *env)
+LISP_VALUE *env_fetch(LISP_VALUE *name, LISP_VALUE *env)
 {
     LISP_VALUE *e = env_search(name, env);
     if (NULL != e) {
@@ -481,9 +471,7 @@ LISP_VALUE *env_fetch(LISP_VALUE *name,
     return NULL;
 }
 
-LISP_VALUE *env_set(LISP_VALUE *name,
-                    LISP_VALUE *val,
-                    LISP_VALUE *env)
+LISP_VALUE *env_set(LISP_VALUE *name, LISP_VALUE *val, LISP_VALUE *env)
 {
     LISP_VALUE *e = env_search(name, env);
     if (NULL != e) {
@@ -496,8 +484,7 @@ LISP_VALUE *env_set(LISP_VALUE *name,
 // it modifies global_env and (an|the) outer environment of all closures
 // is global.  Also: this function does not prevent duplicate names
 // from being added to global_env.
-void global_env_init(LISP_VALUE *name,
-                     LISP_VALUE *value)
+void global_env_init(LISP_VALUE *name, LISP_VALUE *value)
 {
     LISP_VALUE *value_part;
     value_part = cons(value, global_env);
@@ -508,8 +495,7 @@ void global_env_init(LISP_VALUE *name,
 
 // This function may be safely called after any closure creation.
 // global_env must contain at least one name/value pair.
-void global_env_extend(LISP_VALUE *name,
-                       LISP_VALUE *value)
+void global_env_extend(LISP_VALUE *name, LISP_VALUE *value)
 {
     LISP_VALUE *tmp0, *tmp1;
     protect_from_gc(name);  // name
@@ -536,9 +522,8 @@ void global_env_extend(LISP_VALUE *name,
 #define ADD_STX_BITS(n, b) ((n) = ((n) << N_STX_BITS) | b)
 #define STX_CADR ((N_STX_BITS << STX_CAR) | STX_CAR)
 
-int syntax_check(LISP_VALUE *expr,
-                 unsigned syntax_bits,
-                 unsigned type_expected)
+int one_level_syntax_check(LISP_VALUE *expr, unsigned syntax_bits,
+                           unsigned type_expected)
 {
     while (syntax_bits) {
         if ((NULL == expr) || !IS_TYPE(expr, V_CONS_CELL)) {
@@ -559,8 +544,7 @@ int syntax_check(LISP_VALUE *expr,
     return (NULL != expr) && IS_TYPE(expr, type_expected);
 }
 
-LISP_VALUE *eval(LISP_VALUE *expr,
-                 LISP_VALUE *env)
+LISP_VALUE *eval(LISP_VALUE *expr, LISP_VALUE *env)
 {
     LISP_VALUE *ret = NULL;
     if (IS_SELF_EVAUATING(expr)) {

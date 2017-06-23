@@ -1,4 +1,4 @@
-enum {
+enum LISP_TYPE {
     V_INT         = 0x01,
     V_SYMBOL      = 0x02,
     V_CONS_CELL   = 0x04,
@@ -28,7 +28,7 @@ struct _LISP_VALUE {
 };
 
 
-f#define IS_TYPE(val, type) ((val)->value_type & type)
+#define IS_TYPE(val, type) ((val)->value_type & type)
 #define IS_ATOM(val) (IS_TYPE(val, V_INT) || IS_TYPE(val, V_SYMBOL) || \
                       IS_TYPE(val, V_NIL))
 #define IS_MARKED(val) ((val)->value_bits & ~TYPE_BITMASK)
