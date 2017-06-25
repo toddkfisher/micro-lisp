@@ -50,6 +50,17 @@ struct _LISP_VALUE {
 // size of protect_stack[]
 #define MAX_PROTECTED 1024
 
+#define N_POS_BITS 2
+#define POS_CAR 0x1
+#define POS_CDR 0x2
+#define POS_BITMASK 0x3
+#define POS_CADR ((POS_CAR << N_POS_BITS) | POS_CDR)
+#define POS_CADDR ((POS_CADR << N_POS_BITS) | POS_CDR)
+#define POS_CADDDR ((POS_CADDR << N_POS_BITS) | POS_CDR)
+#define ADD_POS_BITS(n, b) ((n) = ((n) << N_POS_BITS) | b)
+
+int type_check(LISP_VALUE *expr, unsigned pos_bits, unsigned type_expected,
+               LISP_VALUE **item);
 void print_lisp_value(LISP_VALUE *val, int print_newline);
 void next_char(void);
 void skip_blanks(void);

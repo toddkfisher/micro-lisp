@@ -91,6 +91,11 @@ LISP_VALUE *cadr(LISP_VALUE *x)
     return x->cdr->car;
 }
 
+LISP_VALUE *caddr(LISP_VALUE *x)
+{
+    return x->cdr->cdr->car;
+}
+
 //------------------------------------------------------------------------------
 // Read/write routines
 
@@ -471,13 +476,14 @@ LISP_VALUE *env_fetch(LISP_VALUE *name, LISP_VALUE *env)
     return NULL;
 }
 
-LISP_VALUE *env_set(LISP_VALUE *name, LISP_VALUE *val, LISP_VALUE *env)
+int env_set(LISP_VALUE *name, LISP_VALUE *val, LISP_VALUE *env)
 {
     LISP_VALUE *e = env_search(name, env);
     if (NULL != e) {
         e->cdr->car = val;
+        return 1;
     }
-    return val;
+    return 0;
 }
 
 // This function may not be called after any closure creation since
@@ -514,26 +520,27 @@ void global_env_extend(LISP_VALUE *name, LISP_VALUE *value)
 //------------------------------------------------------------------------------
 // Eval-related and built-in functions.
 
-#define N_STX_BITS 2
-#define STX_CAR 0x1
-#define STX_CDR 0x2
-#define STX_BITMASK 0x3
+#define N_POS_BITS 2
+#define POS_CAR 0x1
+#define POS_CDR 0x2
+#define POS_BITMASK 0x3
+#define POS_CADR ((POS_CAR << N_POS_BITS) | POS_CDR)
+#define POS_CADDR ((POS_CADR << N_POS_BITS) | POS_CDR)
+#define POS_CADDDR ((POS_CADDR << N_POS_BITS) | POS_CDR)
+#define ADD_POS_BITS(n, b) ((n) = ((n) << N_POS_BITS) | b)
 
-#define ADD_STX_BITS(n, b) ((n) = ((n) << N_STX_BITS) | b)
-#define STX_CADR ((N_STX_BITS << STX_CAR) | STX_CAR)
-
-int one_level_syntax_check(LISP_VALUE *expr, unsigned syntax_bits,
-                           unsigned type_expected)
+int type_check(LISP_VALUE *expr, unsigned pos_bits, unsigned type_expected,
+               LISP_VALUE **item)
 {
-    while (syntax_bits) {
+    while (pos_bits) {
         if ((NULL == expr) || !IS_TYPE(expr, V_CONS_CELL)) {
             return 0;
         }
-        switch (syntax_bits & STX_BITMASK) {
-            case STX_CAR:
+        switch (pos_bits & POS_BITMASK) {
+            case POS_CAR:
                 expr = expr->car;
                 break;
-            case STX_CDR:
+            case POS_CDR:
                 expr = expr->cdr;
                 break;
             default:
@@ -541,32 +548,46 @@ int one_level_syntax_check(LISP_VALUE *expr, unsigned syntax_bits,
                 break;
         }
     }
-    return (NULL != expr) && IS_TYPE(expr, type_expected);
+    if ((NULL != expr) && IS_TYPE(expr, type_expected)) {
+        if (NULL != item) {
+            *item = expr;
+        }
+        return 1;
+    }
+    return 0;
+}
+
+int kw_check(LISP_VALUE *expr, char *kw)
+{
+    if (!IS_TYPE(expr, V_CONS_CELL)) {
+        return 0;
+    }
+    return KW_EQ(car(expr), kw);
 }
 
 LISP_VALUE *eval(LISP_VALUE *expr, LISP_VALUE *env)
 {
     LISP_VALUE *ret = NULL;
+    protect_from_gc(expr);
     if (IS_SELF_EVAUATING(expr)) {
-        return expr;
+        ret = expr;
     } else if (IS_TYPE(expr, V_SYMBOL)) {
-        if(NULL == (ret = env_fetch(expr, env))) {
+        if (NULL == (ret = env_fetch(expr, env))) {
             error("Variable not found: ");
             print_lisp_value(expr, 1);
         }
-    }
-#if 0
-    else if (IS_TYPE(expr, V_CONS_CELL)) {
+    } else if (IS_TYPE(expr, V_CONS_CELL)) {
         // Keyword or function.
-        LISP_VALUE *car_expr = car(expr);
-        if (KW_EQ(car_expr, "quote")) {
-            syntax_check
-        }
-       else if (KW_EQ(car_expr, "set!")) {
-            LISP_VALUE *name;
+        if (kw_check(expr, "quote")) {
+            ret = cadr(expr);
+        } else if (kw_check(expr, "setq")) {
+            LISP_VALUE *val_expr;
+            if (!type_check(expr, CADR, V_SYMBOL, NULL)) {
+                error("setq requires variable name as 1st argument.");
+            } else if (type_check(expr, CADDR, V_ANY, &val_expr)) {
+                LISP_VALUE *val = eval(
         }
     }
-#endif
     return NULL;
 }
 
