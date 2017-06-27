@@ -4,6 +4,9 @@
 #include <ctype.h>
 #include "micro-lisp.h"
 
+//------------------------------------------------------------------------------
+/// Globals
+
 // enum to string map
 char *value_names[] = {
     "V_INT",
@@ -40,7 +43,7 @@ int nest_level = 0;
 LISP_VALUE *global_env;
 
 //------------------------------------------------------------------------------
-// Utility functions
+/// Utility functions
 
 void error(char *msg)
 {
@@ -97,7 +100,7 @@ LISP_VALUE *caddr(LISP_VALUE *x)
 }
 
 //------------------------------------------------------------------------------
-// Read/write routines
+/// Read/write routines
 
 void print_lisp_value_aux(LISP_VALUE *val, int nest_level,
                           int has_items_following)
@@ -251,7 +254,7 @@ LISP_VALUE *read_list(void)
 }
 
 //------------------------------------------------------------------------------
-// Memory/gc-related routines.
+/// Memory/gc-related routines.
 
 void dump_protect_stack(void)
 {
@@ -424,7 +427,7 @@ LISP_VALUE *new_value(int value_type)
 }
 
 //------------------------------------------------------------------------------
-// Environment-related routines
+/// Environment-related routines
 //
 // The format of an environment is: (var-name var-value . <outer environment>)
 // The end of the environment chain is terminated with NIL.  Thus, environments
@@ -518,51 +521,113 @@ void global_env_extend(LISP_VALUE *name, LISP_VALUE *value)
 }
 
 //------------------------------------------------------------------------------
-// Eval-related and built-in functions.
+/// Eval-related and built-in functions.
 
-#define N_POS_BITS 2
-#define POS_CAR 0x1
-#define POS_CDR 0x2
-#define POS_BITMASK 0x3
-#define POS_CADR ((POS_CAR << N_POS_BITS) | POS_CDR)
-#define POS_CADDR ((POS_CADR << N_POS_BITS) | POS_CDR)
-#define POS_CADDDR ((POS_CADDR << N_POS_BITS) | POS_CDR)
-#define ADD_POS_BITS(n, b) ((n) = ((n) << N_POS_BITS) | b)
 
-int type_check(LISP_VALUE *expr, unsigned pos_bits, unsigned type_expected,
-               LISP_VALUE **item)
+LISP_VALUE *do_setq(LISP_VALUE *name, LISP_VALUE *expr)
 {
-    while (pos_bits) {
-        if ((NULL == expr) || !IS_TYPE(expr, V_CONS_CELL)) {
-            return 0;
-        }
-        switch (pos_bits & POS_BITMASK) {
-            case POS_CAR:
-                expr = expr->car;
-                break;
-            case POS_CDR:
-                expr = expr->cdr;
-                break;
-            default:
-                return 0;
-                break;
-        }
-    }
-    if ((NULL != expr) && IS_TYPE(expr, type_expected)) {
-        if (NULL != item) {
-            *item = expr;
-        }
-        return 1;
-    }
-    return 0;
+    return NULL;
 }
 
-int kw_check(LISP_VALUE *expr, char *kw)
+LISP_VALUE *test_builtin(LISP_VALUE *arg0, LISP_VALUE *arg1, LISP_VALUE *arg2)
 {
-    if (!IS_TYPE(expr, V_CONS_CELL)) {
-        return 0;
+    return NULL;
+}
+
+#define ARG_EVALED 0
+#define ARG_UNEVALED 1
+
+BUILTIN_INFO builtin_list[] = {
+    {
+        "setq", 2, .builtin_2 = do_setq,
+        ARG_UNEVALED, V_SYMBOL,
+        ARG_EVALED, V_ANY
+    },
+    {
+        "test", 3, .builtin_3 = test_builtin,
+        ARG_EVALED, V_ANY,
+        ARG_EVALED, V_ANY,
+        ARG_EVALED, V_ANY
+    },
+    {"", -1, NULL},
+};
+
+#define UNPACKAGE_ARGS_0
+#define UNPACKAGE_ARGS_1  args[0]
+#define UNPACKAGE_ARGS_2  UNPACKAGE_ARGS_1,  args[1]
+#define UNPACKAGE_ARGS_3  UNPACKAGE_ARGS_2,  args[2]
+#define UNPACKAGE_ARGS_4  UNPACKAGE_ARGS_3,  args[3]
+#define UNPACKAGE_ARGS_5  UNPACKAGE_ARGS_4,  args[4]
+#define UNPACKAGE_ARGS_6  UNPACKAGE_ARGS_5,  args[5]
+#define UNPACKAGE_ARGS_7  UNPACKAGE_ARGS_6,  args[6]
+#define UNPACKAGE_ARGS_8  UNPACKAGE_ARGS_7,  args[7]
+#define UNPACKAGE_ARGS_9  UNPACKAGE_ARGS_8,  args[8]
+#define UNPACKAGE_ARGS_10 UNPACKAGE_ARGS_9,  args[9]
+#define UNPACKAGE_ARGS_11 UNPACKAGE_ARGS_10, args[10]
+#define UNPACKAGE_ARGS_12 UNPACKAGE_ARGS_11, args[11]
+#define UNPACKAGE_ARGS_13 UNPACKAGE_ARGS_12, args[12]
+#define UNPACKAGE_ARGS_14 UNPACKAGE_ARGS_13, args[13]
+#define UNPACKAGE_ARGS_15 UNPACKAGE_ARGS_14, args[14]
+
+#define CALL_BUILTIN(n) \
+    case n: \
+    return (*pinfo->builtin_##n)(UNPACKAGE_ARGS_##n); \
+    break;
+
+LISP_VALUE *eval(LISP_VALUE *expr, LISP_VALUE *env);
+
+LISP_VALUE *eval_builtin(LISP_VALUE *expr, LISP_VALUE *env)
+{
+    LISP_VALUE *args[16], *unevaled_arg, *evaluated_arg, *arglist;
+    BUILTIN_INFO *pinfo;
+    int n_args, i_arg;
+    for (pinfo = builtin_list; pinfo->n_args != -1; ++pinfo) {
+        if (KW_EQ(car(expr), pinfo->name)) {
+            n_args = pinfo->n_args;
+            arglist = cdr(expr);
+            for (i_arg = 0; i_arg < n_args; ++i_arg) {
+                if (!IS_TYPE(arglist, V_CONS_CELL)) {
+                    error("Insufficient number of arguments to function.");
+                    return NULL;
+                }
+                unevaled_arg = car(arglist);
+                if (ARG_UNEVALED == pinfo->arg_types[2*i_arg]) {
+                    if (!IS_TYPE(unevaled_arg, pinfo->arg_types[2*i_arg + 1])) {
+                        error("Incorrect argument type to function.");
+                        return NULL;
+                    }
+                    args[i_arg] = unevaled_arg;
+                } else if (ARG_EVALED == pinfo->arg_types[2*i_arg]) {
+                    if (NULL == (evaluated_arg = eval(unevaled_arg, env))) {
+                        return NULL;
+                    }
+                    if (!IS_TYPE(evaluated_arg, pinfo->arg_types[2*i_arg + 1])) {
+                        error("Incorrect argument type to function.");
+                        return NULL;
+                    }
+                    args[i_arg] = evaluated_arg;
+                }
+            }
+            switch (pinfo->n_args) {
+                CALL_BUILTIN(0);
+                CALL_BUILTIN(1);
+                CALL_BUILTIN(2);
+                CALL_BUILTIN(3);
+                CALL_BUILTIN(4);
+                CALL_BUILTIN(5);
+                CALL_BUILTIN(6);
+                CALL_BUILTIN(7);
+                CALL_BUILTIN(8);
+                CALL_BUILTIN(9);
+                CALL_BUILTIN(10);
+                CALL_BUILTIN(11);
+                CALL_BUILTIN(12);
+                CALL_BUILTIN(13);
+                CALL_BUILTIN(14);
+                CALL_BUILTIN(15);
+            }
+        }
     }
-    return KW_EQ(car(expr), kw);
 }
 
 LISP_VALUE *eval(LISP_VALUE *expr, LISP_VALUE *env)
@@ -578,15 +643,6 @@ LISP_VALUE *eval(LISP_VALUE *expr, LISP_VALUE *env)
         }
     } else if (IS_TYPE(expr, V_CONS_CELL)) {
         // Keyword or function.
-        if (kw_check(expr, "quote")) {
-            ret = cadr(expr);
-        } else if (kw_check(expr, "setq")) {
-            LISP_VALUE *val_expr;
-            if (!type_check(expr, CADR, V_SYMBOL, NULL)) {
-                error("setq requires variable name as 1st argument.");
-            } else if (type_check(expr, CADDR, V_ANY, &val_expr)) {
-                LISP_VALUE *val = eval(
-        }
     }
     return NULL;
 }
