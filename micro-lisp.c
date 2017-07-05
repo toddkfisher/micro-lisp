@@ -7,16 +7,6 @@
 //------------------------------------------------------------------------------
 /// Globals
 
-// enum to string map
-char *value_names[] = {
-  "V_INT",
-  "V_SYMBOL",
-  "V_CONS_CELL",
-  "V_CLOSURE",
-  "V_NIL",
-  "V_UNALLOCATED"
-};
-
 // Array of values.  Everything gets stored in one (or more) of these.
 LISP_VALUE mem[MAX_VALUES];
 
@@ -45,33 +35,49 @@ LISP_VALUE *global_env;
 //------------------------------------------------------------------------------
 /// Utility functions
 
-void error(char *msg)
+void error(
+  char *msg
+)
 {
   fprintf(stderr, "ERROR: %s\n", msg);
 }
 
-void fatal(char *msg)
+void fatal(
+  char *msg
+)
 {
   fprintf(stderr, "FATAL: %s\n", msg);
   exit(1);
 }
 
-LISP_VALUE *set_car(LISP_VALUE *x, LISP_VALUE *y)
+LISP_VALUE *set_car(
+  LISP_VALUE *x,
+  LISP_VALUE *y
+)
 {
   return x->car = y;
 }
 
-LISP_VALUE *set_cadr(LISP_VALUE *x, LISP_VALUE *y)
+LISP_VALUE *set_cadr(
+  LISP_VALUE *x,
+  LISP_VALUE *y
+)
 {
   return x->car->cdr = y;
 }
 
-int sym_eq(LISP_VALUE *x, LISP_VALUE *y)
+int sym_eq(
+  LISP_VALUE *x,
+  LISP_VALUE *y
+)
 {
   return STREQ(x->symbol, y->symbol);
 }
 
-LISP_VALUE *cons(LISP_VALUE *x, LISP_VALUE *y)
+LISP_VALUE *cons(
+  LISP_VALUE *x,
+  LISP_VALUE *y
+)
 {
   LISP_VALUE *res = new_value(V_CONS_CELL);
   res->car = x;
@@ -79,22 +85,30 @@ LISP_VALUE *cons(LISP_VALUE *x, LISP_VALUE *y)
   return res;
 }
 
-LISP_VALUE *car(LISP_VALUE *x)
+LISP_VALUE *car(
+  LISP_VALUE *x
+)
 {
   return x->car;
 }
 
-LISP_VALUE *cdr(LISP_VALUE *x)
+LISP_VALUE *cdr(
+  LISP_VALUE *x
+)
 {
   return x->cdr;
 }
 
-LISP_VALUE *cadr(LISP_VALUE *x)
+LISP_VALUE *cadr(
+  LISP_VALUE *x
+)
 {
   return x->cdr->car;
 }
 
-LISP_VALUE *caddr(LISP_VALUE *x)
+LISP_VALUE *caddr(
+  LISP_VALUE *x
+)
 {
   return x->cdr->cdr->car;
 }
@@ -102,9 +116,15 @@ LISP_VALUE *caddr(LISP_VALUE *x)
 //------------------------------------------------------------------------------
 /// Read/write routines
 
-void print_lisp_value_aux(LISP_VALUE *val, int nest_level,
-                          int has_items_following)
+void print_lisp_value_aux(
+  LISP_VALUE *val,
+  int nest_level,
+  int has_items_following
+)
 {
+  if (NULL == val) {
+    printf("<NULL>");
+  }
   switch (val->value_type)
   {
     case V_INT:
@@ -145,7 +165,10 @@ void print_lisp_value_aux(LISP_VALUE *val, int nest_level,
   }
 }
 
-void print_lisp_value(LISP_VALUE *val, int print_newline)
+void print_lisp_value(
+  LISP_VALUE *val,
+  int print_newline
+)
 {
   print_lisp_value_aux(val, 0, 0);
   if (print_newline) {
@@ -175,55 +198,52 @@ void skip_blanks(void)
   }
 }
 
-LISP_VALUE *read_symbol(void)
+LISP_VALUE *read_atom(void)
 {
-  int n = 0;
-  LISP_VALUE *ret = new_value(V_SYMBOL);
-  while (IS_ALPHANUM(current_char)) {
-    if (n < SYM_SIZE - 1) {
-      ret->symbol[n] = current_char;
-      ret->symbol[++n] = '\0';
+  int n_char = 0, maybe_number = 1, sign = 1, intnum = 0, saw_digit = 0;
+  LISP_VALUE *ret = new_value(V_ANY);
+  while (IS_ATOM_CHAR(current_char)) {
+    if (('+' == current_char) || '-' == current_char) {
+      // Sign (+|-) can only occur as first char.
+      maybe_number = maybe_number && (0 == n_char);
+      if (maybe_number) {
+        sign = '-' == current_char ? -1 : 1;
+      }
+    } else if (IS_DIGIT(current_char)) {
+      saw_digit = 1;
+      if (maybe_number) {
+        // We have a digit and what we've seen so far looks like a number.
+        intnum = intnum*10 + (current_char - '0');
+      }
+    } else {
+      maybe_number = 0;
+    }
+    if (n_char < SYM_SIZE - 1) {
+      ret->symbol[n_char++] = current_char;
+      ret->symbol[n_char] = '\0';
     }
     next_char();
   }
-  if (STREQ(ret->symbol, "nil")) {
-    ret->value_type = V_NIL;
+  if (maybe_number && saw_digit) {
+    ret->value_type = V_INT;
+    ret->intnum = sign*intnum;
+  } else {
+    ret->value_type = V_SYMBOL;
   }
-  return ret;
-}
-
-LISP_VALUE *read_intnum(void)
-{
-  int n = 0;
-  LISP_VALUE *ret = new_value(V_INT);
-  int sign = '-' == current_char ? -1 : 1;
-  if ('+' == current_char || '-' == current_char) {
-    next_char();
-  }
-  if (!IS_DIGIT(current_char)) {
-    error("Error reading integer.\n");
-  }
-  while (IS_DIGIT(current_char)) {
-    n = n*10 + (current_char - '0');
-    next_char();
-  }
-  ret->intnum = n*sign;
   return ret;
 }
 
 LISP_VALUE *read_lisp_value(void)
 {
   skip_blanks();
-  if (isalpha(current_char)) {
-    return read_symbol();
+  if (IS_ATOM_CHAR(current_char)) {
+    return read_atom();
   } else if ('(' == current_char) {
     return read_list();
-  } else if ('+' == current_char || '-' == current_char ||
-             IS_DIGIT(current_char)) {
-    return read_intnum();
-
+  } else if (')' == current_char) {
+    error("Unbalanced parens.");
   } else {
-    error("Read error.\n");
+    error("Read error.");
   }
   return NULL;
 }
@@ -261,8 +281,8 @@ void dump_protect_stack(void)
   int i;
   printf("---Protect stack:\n");
   for (i = 0; i < protect_stack_ptr; ++i) {
-    printf("%02d : slot #%ld, addr %p type %s\n", i, protect_stack[i] - mem,
-           protect_stack[i], value_names[protect_stack[i]->value_type]);
+    printf("%02d : slot #%ld, addr %p\n", i, protect_stack[i] - mem,
+           protect_stack[i]);
     if (IS_ATOM(protect_stack[i])) {
       printf("value = ");
       print_lisp_value(protect_stack[i], 1);
@@ -304,14 +324,19 @@ void sweep(void)
   }
 }
 
-void indent(int n)
+void indent(
+  int n
+)
 {
   while (n-- > 0) {
     printf("    ");
   }
 }
 
-void gc_walk(LISP_VALUE *v, int depth)
+void gc_walk(
+  LISP_VALUE *v,
+  int depth
+)
 {
   if (NULL != v) {
     indent(depth);
@@ -320,7 +345,6 @@ void gc_walk(LISP_VALUE *v, int depth)
       printf("not visited - to be saved.\n");
       v->gc_mark = 1;
       indent(depth);
-      printf("type == %s", value_names[v->value_type]);
       switch (v->value_type) {
         case V_INT:
         case V_SYMBOL:
@@ -376,16 +400,15 @@ void collect(void)
   }
 }
 
-void protect_from_gc(LISP_VALUE *v)
+void protect_from_gc(
+  LISP_VALUE *v
+)
 {
-  printf("protect_from_gc %s\n", value_names[v->value_type]);
   protect_stack[protect_stack_ptr++] = v;
 }
 
 void unprotect_from_gc(void)
 {
-  printf("unprotect_from_gc %s\n",
-         value_names[protect_stack[protect_stack_ptr - 1]->value_type]);
   protect_stack_ptr -= 1;
 }
 
@@ -407,7 +430,9 @@ void init_free_list(void)
   printf("Available values/cons cells = %d\n", n_free_values);
 }
 
-LISP_VALUE *new_value(int value_type)
+LISP_VALUE *new_value(
+  int value_type
+)
 {
   LISP_VALUE *ret = free_list_head;
   if (NULL == free_list_head) {
@@ -447,8 +472,11 @@ LISP_VALUE *new_value(int value_type)
 // environment's cadr.
 //
 
-LISP_VALUE *env_extend(LISP_VALUE *var_name, LISP_VALUE *var_value,
-                       LISP_VALUE *outer_env)
+LISP_VALUE *env_extend(
+  LISP_VALUE *var_name,
+  LISP_VALUE *var_value,
+  LISP_VALUE *outer_env
+)
 {
   LISP_VALUE *part1, *part2;
   part1 = cons(var_value, outer_env);
@@ -458,7 +486,10 @@ LISP_VALUE *env_extend(LISP_VALUE *var_name, LISP_VALUE *var_value,
   return part2;
 }
 
-LISP_VALUE *env_search(LISP_VALUE *name, LISP_VALUE *env)
+LISP_VALUE *env_search(
+  LISP_VALUE *name,
+  LISP_VALUE *env
+)
 {
   if (!IS_TYPE(env, V_NIL)) {
     if (sym_eq(car(env), name)) {
@@ -470,7 +501,10 @@ LISP_VALUE *env_search(LISP_VALUE *name, LISP_VALUE *env)
   return NULL;
 }
 
-LISP_VALUE *env_fetch(LISP_VALUE *name, LISP_VALUE *env)
+LISP_VALUE *env_fetch(
+  LISP_VALUE *name,
+  LISP_VALUE *env
+)
 {
   LISP_VALUE *e = env_search(name, env);
   if (NULL != e) {
@@ -479,7 +513,11 @@ LISP_VALUE *env_fetch(LISP_VALUE *name, LISP_VALUE *env)
   return NULL;
 }
 
-int env_set(LISP_VALUE *name, LISP_VALUE *val, LISP_VALUE *env)
+int env_set(
+  LISP_VALUE *name,
+  LISP_VALUE *val,
+  LISP_VALUE *env
+)
 {
   LISP_VALUE *e = env_search(name, env);
   if (NULL != e) {
@@ -493,7 +531,10 @@ int env_set(LISP_VALUE *name, LISP_VALUE *val, LISP_VALUE *env)
 // it modifies global_env and (an|the) outer environment of all closures
 // is global.  Also: this function does not prevent duplicate names
 // from being added to global_env.
-void global_env_init(LISP_VALUE *name, LISP_VALUE *value)
+void global_env_init(
+  LISP_VALUE *name,
+  LISP_VALUE *value
+)
 {
   LISP_VALUE *value_part;
   value_part = cons(value, global_env);
@@ -504,7 +545,10 @@ void global_env_init(LISP_VALUE *name, LISP_VALUE *value)
 
 // This function may be safely called after any closure creation.
 // global_env must contain at least one name/value pair.
-void global_env_extend(LISP_VALUE *name, LISP_VALUE *value)
+void global_env_extend(
+  LISP_VALUE *name,
+  LISP_VALUE *value
+)
 {
   LISP_VALUE *tmp0, *tmp1;
   protect_from_gc(name);  // name
@@ -523,114 +567,198 @@ void global_env_extend(LISP_VALUE *name, LISP_VALUE *value)
 //------------------------------------------------------------------------------
 /// Eval-related and built-in functions.
 
-
-LISP_VALUE *do_setq(LISP_VALUE *name, LISP_VALUE *expr)
+LISP_VALUE *stx_dumpenv(
+  LISP_VALUE *env
+)
 {
-  return NULL;
+  print_lisp_value(env, 1);
+  return env;
 }
 
-LISP_VALUE *test_builtin(LISP_VALUE *arg0, LISP_VALUE *arg1, LISP_VALUE *arg2)
+LISP_VALUE *stx_quote(
+  LISP_VALUE *arg,
+  LISP_VALUE *env
+)
 {
-  return NULL;
+  return arg;
 }
 
-#define ARG_EVALED 0
-#define ARG_UNEVALED 1
-
-BUILTIN_INFO syntax_list[] = {
-  {
-    "setq", 2, .syntax_2 = stx_setq,
-    ARG_UNEVALED, V_SYMBOL,
-    ARG_EVALED, V_ANY
-  },
-  {
-    "quote", 1, .syntax_3 = stx_quote,
-    ARG_EVALED, V_ANY,
-    ARG_EVALED, V_ANY,
-    ARG_EVALED, V_ANY
-  },
-  {"", -1, NULL},
-};
-
-#define UNPACKAGE_ARGS_0
-#define UNPACKAGE_ARGS_1  args[0]
-#define UNPACKAGE_ARGS_2  UNPACKAGE_ARGS_1,  args[1]
-#define UNPACKAGE_ARGS_3  UNPACKAGE_ARGS_2,  args[2]
-#define UNPACKAGE_ARGS_4  UNPACKAGE_ARGS_3,  args[3]
-#define UNPACKAGE_ARGS_5  UNPACKAGE_ARGS_4,  args[4]
-#define UNPACKAGE_ARGS_6  UNPACKAGE_ARGS_5,  args[5]
-#define UNPACKAGE_ARGS_7  UNPACKAGE_ARGS_6,  args[6]
-#define UNPACKAGE_ARGS_8  UNPACKAGE_ARGS_7,  args[7]
-#define UNPACKAGE_ARGS_9  UNPACKAGE_ARGS_8,  args[8]
-#define UNPACKAGE_ARGS_10 UNPACKAGE_ARGS_9,  args[9]
-#define UNPACKAGE_ARGS_11 UNPACKAGE_ARGS_10, args[10]
-#define UNPACKAGE_ARGS_12 UNPACKAGE_ARGS_11, args[11]
-#define UNPACKAGE_ARGS_13 UNPACKAGE_ARGS_12, args[12]
-#define UNPACKAGE_ARGS_14 UNPACKAGE_ARGS_13, args[13]
-#define UNPACKAGE_ARGS_15 UNPACKAGE_ARGS_14, args[14]
-
-#define EVAL_SYNTAX(n)                              \
-  case n:                                           \
-  return (*pinfo->builtin_##n)(UNPACKAGE_ARGS_##n); \
-  break;
-
-LISP_VALUE *eval(LISP_VALUE *expr, LISP_VALUE *env);
-
-LISP_VALUE *eval_builtin(LISP_VALUE *expr, LISP_VALUE *env)
+LISP_VALUE *stx_setq(
+  LISP_VALUE *name,
+  LISP_VALUE *val,
+  LISP_VALUE *env
+)
 {
-  LISP_VALUE *args[16], *unevaled_arg, *evaluated_arg, *arglist;
-  BUILTIN_INFO *pinfo;
-  int n_args, i_arg;
-  for (pinfo = builtin_list; pinfo->n_args != -1; ++pinfo) {
-    if (KW_EQ(car(expr), pinfo->name)) {
-      n_args = pinfo->n_args;
-      arglist = cdr(expr);
-      for (i_arg = 0; i_arg < n_args; ++i_arg) {
-        if (!IS_TYPE(arglist, V_CONS_CELL)) {
-          error("Insufficient number of arguments to function.");
-          return NULL;
-        }
-        unevaled_arg = car(arglist);
-        if (ARG_UNEVALED == pinfo->arg_types[2*i_arg]) {
-          if (!IS_TYPE(unevaled_arg, pinfo->arg_types[2*i_arg + 1])) {
-            error("Incorrect argument type to function.");
-            return NULL;
-          }
-          args[i_arg] = unevaled_arg;
-        } else if (ARG_EVALED == pinfo->arg_types[2*i_arg]) {
-          if (NULL == (evaluated_arg = eval(unevaled_arg, env))) {
-            return NULL;
-          }
-          if (!IS_TYPE(evaluated_arg, pinfo->arg_types[2*i_arg + 1])) {
-            error("Incorrect argument type to function.");
-            return NULL;
-          }
-          args[i_arg] = evaluated_arg;
-        }
-      }
-      switch (pinfo->n_args) {
-        CALL_BUILTIN(0);
-        CALL_BUILTIN(1);
-        CALL_BUILTIN(2);
-        CALL_BUILTIN(3);
-        CALL_BUILTIN(4);
-        CALL_BUILTIN(5);
-        CALL_BUILTIN(6);
-        CALL_BUILTIN(7);
-        CALL_BUILTIN(8);
-        CALL_BUILTIN(9);
-        CALL_BUILTIN(10);
-        CALL_BUILTIN(11);
-        CALL_BUILTIN(12);
-        CALL_BUILTIN(13);
-        CALL_BUILTIN(14);
-        CALL_BUILTIN(15);
-      }
+  LISP_VALUE *curr_val = env_fetch(name, env);
+  if (NULL == curr_val) {
+    if (global_env == env) {
+      printf("extending global env.\n");
+      global_env_extend(name, val);
+      return val;
+    } else {
+      error("Cannot extend global env in closure.");
+      return NULL;
     }
+  } else {
+    env_set(name, val, env);
+    return val;
   }
 }
 
-LISP_VALUE *eval(LISP_VALUE *expr, LISP_VALUE *env)
+LISP_VALUE *fn_add(
+  LISP_VALUE *x,
+  LISP_VALUE *y,
+  LISP_VALUE *env
+)
+{
+  LISP_VALUE *res = new_value(V_INT);
+  res->intnum = x->intnum + y->intnum;
+  return res;
+}
+
+typedef enum _BUILTIN_ID BUILTIN_ID;
+enum BUILTIN_ID {
+  STX_SETQ,
+  STX_QUOTE,
+  STX_DUMPENV,
+  FUNC_ADD
+};
+
+BUILTIN_INFO builtin_list[] = {
+  {
+    .name      = "setq",
+    .type      = BUILTIN_SYNTAX,
+    .n_args    = 2,
+    .builtin_2 = stx_setq,
+    ARG_UNEVALED, V_SYMBOL,
+    ARG_EVALED,   V_ANY
+  },
+  {
+    .name      = "quote",
+    .type      = BUILTIN_SYNTAX,
+    .n_args    = 1,
+    .builtin_1 = stx_quote,
+    ARG_UNEVALED, V_ANY
+  },
+  {
+    .name      = "dumpenv",
+    .type      = BUILTIN_SYNTAX,
+    .builtin_0 = stx_dumpenv,
+    .n_args    = 0
+  },
+  {
+    .name = "add",
+    .type = BUILTIN_FUNCTION,
+    .builtin_2 = fn_add,
+    .n_args = 2,
+    ARG_EVALED, V_INT,
+    ARG_EVALED, V_INT
+  },
+  {"", BUILTIN_NOTUSED, -1, NULL}, // end of list marker
+};
+
+LISP_VALUE *check_arg(
+  BUILTIN_INFO *pinfo,
+  int i_arg,
+  LISP_VALUE *unevaled_arg,
+  LISP_VALUE *env
+)
+{
+  LISP_VALUE *evaluated_arg;
+  if (ARG_UNEVALED == pinfo->arg_types[2*i_arg]) {
+    if (!IS_TYPE(unevaled_arg, pinfo->arg_types[2*i_arg + 1])) {
+      error("Incorrect argument type to function.");
+      return NULL;
+    }
+    return unevaled_arg;
+  } else if (ARG_EVALED == pinfo->arg_types[2*i_arg]) {
+    if (NULL == (evaluated_arg = eval(unevaled_arg, env))) {
+      return NULL;
+    }
+    if (!IS_TYPE(evaluated_arg, pinfo->arg_types[2*i_arg + 1])) {
+      error("Incorrect argument type to function.");
+      return NULL;
+    }
+    return evaluated_arg;
+  }
+  return NULL;
+}
+
+LISP_VALUE *call_builtin(
+  BUILTIN_INFO *pinfo,
+  LISP_VALUE *args[],
+  LISP_VALUE *env
+)
+{
+  switch (pinfo->n_args) {
+    CALL_BUILTIN_WITH_ARG_ARRAY(0)
+    CALL_BUILTIN_WITH_ARG_ARRAY(1)
+    CALL_BUILTIN_WITH_ARG_ARRAY(2)
+    CALL_BUILTIN_WITH_ARG_ARRAY(3)
+    CALL_BUILTIN_WITH_ARG_ARRAY(4)
+    CALL_BUILTIN_WITH_ARG_ARRAY(5)
+    CALL_BUILTIN_WITH_ARG_ARRAY(6)
+    CALL_BUILTIN_WITH_ARG_ARRAY(7)
+    CALL_BUILTIN_WITH_ARG_ARRAY(8)
+    CALL_BUILTIN_WITH_ARG_ARRAY(9)
+    CALL_BUILTIN_WITH_ARG_ARRAY(10)
+    CALL_BUILTIN_WITH_ARG_ARRAY(11)
+    CALL_BUILTIN_WITH_ARG_ARRAY(12)
+    CALL_BUILTIN_WITH_ARG_ARRAY(13)
+    CALL_BUILTIN_WITH_ARG_ARRAY(14)
+    CALL_BUILTIN_WITH_ARG_ARRAY(15)
+  }
+  return NULL;
+}
+
+LISP_VALUE *eval_builtin(
+  BUILTIN_INFO *pinfo,
+  LISP_VALUE *arglist,
+  LISP_VALUE *env
+)
+{
+  LISP_VALUE *arg_array[16], *unevaled_arg, *passed_arg, *ret;
+  int n_args, i_arg;
+  n_args = pinfo->n_args;
+  for (i_arg = 0; i_arg < n_args; ++i_arg) {
+    if (!IS_TYPE(arglist, V_CONS_CELL)) {
+      error("Insufficient number of arguments to function.");
+      return NULL;
+    }
+    unevaled_arg = car(arglist);
+    arglist = cdr(arglist);
+    if (NULL == (passed_arg = check_arg(pinfo, i_arg, unevaled_arg, env))) {
+      return NULL;
+    }
+    arg_array[i_arg] = passed_arg;
+  }
+  for (i_arg = 0; i_arg < n_args; ++i_arg) {
+    protect_from_gc(arg_array[i_arg]);
+  }
+  ret = call_builtin(pinfo, arg_array, env);
+  for (i_arg = 0; i_arg < n_args; ++i_arg) {
+    unprotect_from_gc();
+  }
+  return ret;
+}
+
+BUILTIN_INFO *get_keyword_info(
+  LISP_VALUE *kw_sym
+)
+{
+  int i;
+  for (i = 0; BUILTIN_NOTUSED != builtin_list[i].type; ++i) {
+    if (KW_EQ(kw_sym, builtin_list[i].name)) {
+      return &builtin_list[i];
+    }
+  }
+  return NULL;
+}
+
+LISP_VALUE *eval(
+  LISP_VALUE *expr,
+  LISP_VALUE *env
+)
 {
   LISP_VALUE *ret = NULL;
   protect_from_gc(expr);
@@ -642,20 +770,47 @@ LISP_VALUE *eval(LISP_VALUE *expr, LISP_VALUE *env)
       print_lisp_value(expr, 1);
     }
   } else if (IS_TYPE(expr, V_CONS_CELL)) {
-    // Keyword or function.
+    // function call or syntax.
+    LISP_VALUE *fn = car(expr);
+    if (IS_TYPE(fn, V_SYMBOL)) {
+      // keyword (syntax) or variable holding either:
+      // (1) builtin (gets evaluated by name)
+      // (2) user-defined function
+      BUILTIN_INFO *pinfo;
+      if (NULL != (pinfo = get_keyword_info(fn))) {
+        ret = eval_builtin(pinfo, cdr(expr), env);
+      } else {
+        ret = NULL;  // placeholder
+      }
+    } else {
+      ret = NULL;  // placeholder
+    }
   }
-  return NULL;
+  unprotect_from_gc();
+  return ret;
 }
 
-int main(int argc, char **argv)
+int main(
+  int argc,
+  char **argv
+)
 {
-  LISP_VALUE *expr, *value;
+  LISP_VALUE *expr, *value, *name;
   init_free_list();
   global_env = new_value(V_NIL);
+  print_lisp_value(global_env, 1);
+  value = new_value(V_INT);
+  value->intnum = 666;
+  name = new_value(V_SYMBOL);
+  strcpy(name->symbol, "dummy");
+  global_env_init(name, value);
+  print_lisp_value(global_env, 1);
   for (;;) {
     expr = read_lisp_value();
+    printf("unevaluated =>");
+    print_lisp_value(expr, 1);
     if (NULL != (value = eval(expr, global_env))) {
-      printf("=>");
+      printf("  evaluated =>");
       print_lisp_value(value, 1);
     }
   }

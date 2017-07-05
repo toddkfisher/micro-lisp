@@ -1,0 +1,62 @@
+#pragma once
+#define ARGS_0
+#define ARGS_1 LISP_VALUE *,
+#define ARGS_2 LISP_VALUE *,  ARGS_1
+#define ARGS_3 LISP_VALUE *,  ARGS_2
+#define ARGS_4 LISP_VALUE *,  ARGS_3
+#define ARGS_5 LISP_VALUE *,  ARGS_4
+#define ARGS_6 LISP_VALUE *,  ARGS_5
+#define ARGS_7 LISP_VALUE *,  ARGS_6
+#define ARGS_8 LISP_VALUE *,  ARGS_7
+#define ARGS_9 LISP_VALUE *,  ARGS_8
+#define ARGS_10 LISP_VALUE *, ARGS_9
+#define ARGS_11 LISP_VALUE *, ARGS_10
+#define ARGS_12 LISP_VALUE *, ARGS_11
+#define ARGS_13 LISP_VALUE *, ARGS_12
+#define ARGS_14 LISP_VALUE *, ARGS_13
+#define ARGS_15 LISP_VALUE *, ARGS_14
+#define ARGS_16 LISP_VALUE *, ARGS_15
+
+#define BUILTIN_FN_SIG(n) typedef LISP_VALUE *(*builtin_fn_##n)(ARGS_##n \
+                                                                LISP_VALUE *env)
+
+BUILTIN_FN_SIG(0);
+BUILTIN_FN_SIG(1);
+BUILTIN_FN_SIG(2);
+BUILTIN_FN_SIG(3);
+BUILTIN_FN_SIG(4);
+BUILTIN_FN_SIG(5);
+BUILTIN_FN_SIG(6);
+BUILTIN_FN_SIG(7);
+BUILTIN_FN_SIG(8);
+BUILTIN_FN_SIG(9);
+BUILTIN_FN_SIG(10);
+BUILTIN_FN_SIG(11);
+BUILTIN_FN_SIG(12);
+BUILTIN_FN_SIG(13);
+BUILTIN_FN_SIG(14);
+BUILTIN_FN_SIG(15);
+BUILTIN_FN_SIG(16);
+
+#define UNPACKAGE_ARGS_0
+#define UNPACKAGE_ARGS_1  args[0],
+#define UNPACKAGE_ARGS_2  UNPACKAGE_ARGS_1  args[1],
+#define UNPACKAGE_ARGS_3  UNPACKAGE_ARGS_2  args[2],
+#define UNPACKAGE_ARGS_4  UNPACKAGE_ARGS_3  args[3],
+#define UNPACKAGE_ARGS_5  UNPACKAGE_ARGS_4  args[4],
+#define UNPACKAGE_ARGS_6  UNPACKAGE_ARGS_5  args[5],
+#define UNPACKAGE_ARGS_7  UNPACKAGE_ARGS_6  args[6],
+#define UNPACKAGE_ARGS_8  UNPACKAGE_ARGS_7  args[7],
+#define UNPACKAGE_ARGS_9  UNPACKAGE_ARGS_8  args[8],
+#define UNPACKAGE_ARGS_10 UNPACKAGE_ARGS_9  args[9],
+#define UNPACKAGE_ARGS_11 UNPACKAGE_ARGS_10 args[10],
+#define UNPACKAGE_ARGS_12 UNPACKAGE_ARGS_11 args[11],
+#define UNPACKAGE_ARGS_13 UNPACKAGE_ARGS_12 args[12],
+#define UNPACKAGE_ARGS_14 UNPACKAGE_ARGS_13 args[13],
+#define UNPACKAGE_ARGS_15 UNPACKAGE_ARGS_14 args[14],
+#define UNPACKAGE_ARGS_16 UNPACKAGE_ARGS_15 args[15],
+
+#define CALL_BUILTIN_WITH_ARG_ARRAY(n)                      \
+  case n:                                                   \
+  return (*pinfo->builtin_##n)(UNPACKAGE_ARGS_##n env);     \
+  break;
