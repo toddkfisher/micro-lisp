@@ -50,22 +50,6 @@ void fatal(
   exit(1);
 }
 
-LISP_VALUE *set_car(
-  LISP_VALUE *x,
-  LISP_VALUE *y
-)
-{
-  return x->car = y;
-}
-
-LISP_VALUE *set_cadr(
-  LISP_VALUE *x,
-  LISP_VALUE *y
-)
-{
-  return x->car->cdr = y;
-}
-
 int sym_eq(
   LISP_VALUE *x,
   LISP_VALUE *y
@@ -111,6 +95,29 @@ LISP_VALUE *caddr(
 )
 {
   return x->cdr->cdr->car;
+}
+
+//------------------------------------------------------------------------------
+/// Value creation routines.
+
+LISP_VALUE *create_intnum(
+  int n
+)
+{
+  LISP_VALUE *ret = new_value(V_INTNUM);
+  ret->intnum = n;
+  return ret;
+}
+
+LISP_VALUE *create_nil(void)
+{
+  return new_value(V_NIL);
+}
+
+LISP_VALUE *create_symbol(
+  char *name
+)
+{
 }
 
 //------------------------------------------------------------------------------
@@ -565,7 +572,14 @@ void global_env_extend(
 }
 
 //------------------------------------------------------------------------------
-/// Eval-related and built-in functions.
+/// Built-in functions and syntax.
+
+enum {
+  STX_SETQ,
+  STX_QUOTE,
+  STX_DUMPENV,
+  FUNC_ADD
+};
 
 LISP_VALUE *stx_dumpenv(
   LISP_VALUE *env
@@ -615,14 +629,6 @@ LISP_VALUE *fn_add(
   res->intnum = x->intnum + y->intnum;
   return res;
 }
-
-typedef enum _BUILTIN_ID BUILTIN_ID;
-enum BUILTIN_ID {
-  STX_SETQ,
-  STX_QUOTE,
-  STX_DUMPENV,
-  FUNC_ADD
-};
 
 BUILTIN_INFO builtin_list[] = {
   {
@@ -790,6 +796,8 @@ LISP_VALUE *eval(
   return ret;
 }
 
+
+
 int main(
   int argc,
   char **argv
@@ -798,12 +806,7 @@ int main(
   LISP_VALUE *expr, *value, *name;
   init_free_list();
   global_env = new_value(V_NIL);
-  print_lisp_value(global_env, 1);
-  value = new_value(V_INT);
-  value->intnum = 666;
-  name = new_value(V_SYMBOL);
-  strcpy(name->symbol, "dummy");
-  global_env_init(name, value);
+
   print_lisp_value(global_env, 1);
   for (;;) {
     expr = read_lisp_value();

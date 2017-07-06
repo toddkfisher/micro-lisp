@@ -84,10 +84,18 @@ struct _LISP_VALUE {
 // size of protect_stack[]
 #define MAX_PROTECTED 1024
 
+// Maximum number of built-in keywords(symtax) and functions.
+#define MAX_BUILTINS 128
+
+// Maximum number of arguments a built-in keyword or function
+// may have.
 #define MAX_ARGS 16
-#define BUILTIN_SYNTAX 0
-#define BUILTIN_FUNCTION 1
-#define BUILTIN_NOTUSED 2
+
+enum {
+  BUILTIN_SYNTAX 0
+  BUILTIN_FUNCTION 1
+  BUILTIN_NOTUSED 2
+};
 
 struct _BUILTIN_INFO {
   char *name;
