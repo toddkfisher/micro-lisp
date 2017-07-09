@@ -3,6 +3,7 @@
 #include <string.h>
 #include <ctype.h>
 #include "micro-lisp.h"
+#include "proto.h"
 
 //------------------------------------------------------------------------------
 /// Globals
@@ -104,7 +105,7 @@ LISP_VALUE *create_intnum(
   int n
 )
 {
-  LISP_VALUE *ret = new_value(V_INTNUM);
+  LISP_VALUE *ret = new_value(V_INT);
   ret->intnum = n;
   return ret;
 }
@@ -118,6 +119,22 @@ LISP_VALUE *create_symbol(
   char *name
 )
 {
+  LISP_VALUE *ret = new_value(V_SYMBOL);
+  int n_chars_copied = 0;
+  while (*name && n_chars_copied < SYM_SIZE - 1) {
+    ret->symbol[n_chars_copied++] = *name++;
+  }
+  ret->symbol[n_chars_copied] = '\0';
+  return ret;
+}
+
+LISP_VALUE *create_builtin(
+  BUILTIN_INFO *func_info
+)
+{
+  LISP_VALUE *ret = new_value(V_BUILTIN);
+  ret->func_info = func_info;
+  return ret;
 }
 
 //------------------------------------------------------------------------------
@@ -574,13 +591,6 @@ void global_env_extend(
 //------------------------------------------------------------------------------
 /// Built-in functions and syntax.
 
-enum {
-  STX_SETQ,
-  STX_QUOTE,
-  STX_DUMPENV,
-  FUNC_ADD
-};
-
 LISP_VALUE *stx_dumpenv(
   LISP_VALUE *env
 )
@@ -631,7 +641,7 @@ LISP_VALUE *fn_add(
 }
 
 BUILTIN_INFO builtin_list[] = {
-  {
+   {
     .name      = "setq",
     .type      = BUILTIN_SYNTAX,
     .n_args    = 2,
@@ -652,16 +662,34 @@ BUILTIN_INFO builtin_list[] = {
     .builtin_0 = stx_dumpenv,
     .n_args    = 0
   },
-  {
-    .name = "add",
-    .type = BUILTIN_FUNCTION,
-    .builtin_2 = fn_add,
-    .n_args = 2,
-    ARG_EVALED, V_INT,
-    ARG_EVALED, V_INT
-  },
-  {"", BUILTIN_NOTUSED, -1, NULL}, // end of list marker
+  [MAX_BUILTINS - 1] = {"", BUILTIN_NOTUSED, -1, NULL}, // end of list marker
 };
+
+int builtin_index = 0;
+
+int install_builtin_fn(
+  char *name,
+  void *fn,
+  int n_args
+)
+{
+  if (builtin_index < MAX_BUILTINS - 1) {
+    LISP_VALUE *var_name = create_symbol("+"), val;
+    strcpy(builtin_list[builtin_index].name, name);
+    builtin_list[builtin_index].type = BUILTIN_FUNCTION;
+    builtin_list[builtin_index].n_args = n_args;
+    switch (n_args) {
+      case 0:
+        builtin_list[builtin_index].builtin_fn_0 = (builtin_0) fn;
+        break;
+    }
+    val = create_builtin(&builtin_list[builtin_index]);
+    builtin_index += 1;
+    global_env_init(var_name, val);
+    return builtin_index;
+  }
+  return -1;
+}
 
 LISP_VALUE *check_arg(
   BUILTIN_INFO *pinfo,
@@ -795,8 +823,6 @@ LISP_VALUE *eval(
   unprotect_from_gc();
   return ret;
 }
-
-
 
 int main(
   int argc,

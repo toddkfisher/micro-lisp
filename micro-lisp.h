@@ -32,10 +32,7 @@ struct _LISP_VALUE {
     // V_CLOSURE
     struct { struct _LISP_VALUE *env, *code; };
     // V_BUILTIN
-    struct {
-      unsigned builtin_id;
-      BUILTIN_INFO *func_info;
-    };
+    BUILTIN_INFO *func_info;
     // V_UNALLOCATED
     struct _LISP_VALUE *next_free;
   };
@@ -92,13 +89,13 @@ struct _LISP_VALUE {
 #define MAX_ARGS 16
 
 enum {
-  BUILTIN_SYNTAX 0
-  BUILTIN_FUNCTION 1
-  BUILTIN_NOTUSED 2
+  BUILTIN_SYNTAX,
+  BUILTIN_FUNCTION,
+  BUILTIN_NOTUSED
 };
 
 struct _BUILTIN_INFO {
-  char *name;
+  char name[SYM_SIZE];
   int type;
   int n_args;
   union {
@@ -122,89 +119,3 @@ struct _BUILTIN_INFO {
   };
   int arg_types[MAX_ARGS*2];
 };
-
-void print_lisp_value(
-  LISP_VALUE *val,
-  int print_newline
-);
-
-void next_char(void);
-
-void skip_blanks(void);
-
-LISP_VALUE *read_symbol(void);
-
-LISP_VALUE *read_intnum(void);
-
-LISP_VALUE *read_list(void);
-
-LISP_VALUE *read_lisp_value(void);
-
-LISP_VALUE *new_value(
-  int value_type
-);
-
-void protect_from_gc(
-  LISP_VALUE *v
-);
-
-void unprotect_from_gc(void);
-
-void mark(void);
-
-void sweep(void);
-
-void collect(void);
-
-void gc_walk(
-  LISP_VALUE *v,
-  int depth
-);
-
-void dump_protect_stack(void);
-
-LISP_VALUE *env_extend(
-  LISP_VALUE *var_name,
-  LISP_VALUE *var_value,
-  LISP_VALUE *outer_env
-);
-
-LISP_VALUE *env_search(
-  LISP_VALUE *name,
-  LISP_VALUE *env
-);
-
-LISP_VALUE *env_fetch(
-  LISP_VALUE *name,
-  LISP_VALUE *env
-);
-
-int env_set(
-  LISP_VALUE *name,
-  LISP_VALUE *val,
-  LISP_VALUE *env
-);
-
-LISP_VALUE *eval_builtin(
-  BUILTIN_INFO *pinfo,
-  LISP_VALUE *arglist,
-  LISP_VALUE *env
-);
-
-LISP_VALUE *eval(
-  LISP_VALUE *expr,
-  LISP_VALUE *env
-);
-
-LISP_VALUE *check_arg(
-  BUILTIN_INFO *pinfo,
-  int i_arg,
-  LISP_VALUE *unevaled_arg,
-  LISP_VALUE *env
-);
-
-LISP_VALUE *call_builtin(
-  BUILTIN_INFO *pinfo,
-  LISP_VALUE *args[],
-  LISP_VALUE *env
-);
