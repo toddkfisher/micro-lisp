@@ -57,6 +57,4 @@ BUILTIN_FN_SIG(16);
 #define UNPACKAGE_ARGS_16 UNPACKAGE_ARGS_15 args[15],
 
 #define CALL_BUILTIN_WITH_ARG_ARRAY(n)                      \
-  case n:                                                   \
-  return (*pinfo->builtin_##n)(UNPACKAGE_ARGS_##n env);     \
-  break;
+  return (*pinfo->builtin_##n)(UNPACKAGE_ARGS_##n env);

@@ -62,7 +62,8 @@ struct _LISP_VALUE {
 #define IS_ATOM_CHAR(c)                         \
   (IS_ALPHANUM(c) ||                            \
    IS_DIGIT(c)    ||                            \
-   IN_RANGE((c), '!', '/') ||                   \
+   IN_RANGE((c), '!', '\'') ||                  \
+   IN_RANGE((c), '*', '/') ||                   \
    IN_RANGE((c), ':', '@') ||                   \
    IN_RANGE((c), '[', '`') ||                   \
    IN_RANGE((c), '{', '~'))

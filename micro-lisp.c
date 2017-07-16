@@ -32,6 +32,9 @@ int nest_level = 0;
 // it.
 LISP_VALUE *global_env;
 
+// Index of next function to be placed into builtin_list[].
+int builtin_index = 0;
+
 //------------------------------------------------------------------------------
 /// Utility functions
 
@@ -124,9 +127,8 @@ char *strncpy_with_nul(
   while (*src && n > 0 && n_chars_copied < n) {
     *dest++ = *src++;
   }
-  *dest = 0;
-  return
-
+  *dest = '\0';
+  return dest;
 }
 
 LISP_VALUE *create_symbol(
@@ -687,9 +689,6 @@ BUILTIN_INFO builtin_list[] = {
   [MAX_BUILTINS - 1] = {"", BUILTIN_NOTUSED, -1, NULL}, // end of list marker
 };
 
-// Index of
-int builtin_index = 0;
-
 #define SWITCH_16(v, m)                          \
   do {                                           \
     switch (v) {                                 \
@@ -713,7 +712,7 @@ int builtin_index = 0;
     }                                            \
   } while (0)
 
-#define SET_BUILTIN_FN(n) builtin_list[builtin_index].builtin_fn_##n = (builtin_##n) fn;
+#define SET_BUILTIN_FN(n) builtin_list[builtin_index].builtin_##n = (builtin_fn_##n) fn;
 
 // This function exists because the "installation" of builtin functions
 // is slightly more complicated than simple array initialization which
@@ -721,21 +720,22 @@ int builtin_index = 0;
 // be bound to a variable in the global environment (ex. "+" is bound to
 // fn_add()).
 int install_builtin_fn(
-  char *name,
+  char *var_name,
+  char *descriptive_name,
   void *fn,
   int n_args
 )
 {
   if (builtin_index < MAX_BUILTINS - 1) {
-    LISP_VALUE *var_name = create_symbol("+");
+    LISP_VALUE *var = create_symbol(var_name);
     LISP_VALUE *val;
-    strcpy(builtin_list[builtin_index].name, name);
+    strncpy_with_nul(builtin_list[builtin_index].name, descriptive_name, SYM_SIZE - 1);
     builtin_list[builtin_index].type = BUILTIN_FUNCTION;
     builtin_list[builtin_index].n_args = n_args;
     SWITCH_16(n_args, SET_BUILTIN_FN);
     val = create_builtin(&builtin_list[builtin_index]);
     builtin_index += 1;
-    global_env_init(var_name, val);
+    global_env_init(var, val);
     return builtin_index;
   }
   return -1;
@@ -817,8 +817,9 @@ BUILTIN_INFO *get_keyword_info(
 )
 {
   int i;
-  for (i = 0; BUILTIN_NOTUSED != builtin_list[i].type; ++i) {
-    if (KW_EQ(kw_sym, builtin_list[i].name)) {
+  for (i = 0; i < builtin_index; ++i) {
+    if (BUILTIN_SYNTAX == builtin_list[i].type &&
+        KW_EQ(kw_sym, builtin_list[i].name)) {
       return &builtin_list[i];
     }
   }
@@ -841,16 +842,22 @@ LISP_VALUE *eval(
     }
   } else if (IS_TYPE(expr, V_CONS_CELL)) {
     // function call or syntax.
-    LISP_VALUE *fn = car(expr);
-    if (IS_TYPE(fn, V_SYMBOL)) {
+    LISP_VALUE *car_expr = car(expr);
+    if (IS_TYPE(car_expr, V_SYMBOL)) {
       // keyword (syntax) or variable holding either:
       // (1) builtin (gets evaluated by name)
       // (2) user-defined function
       BUILTIN_INFO *pinfo;
-      if (NULL != (pinfo = get_keyword_info(fn))) {
+      if (NULL != (pinfo = get_keyword_info(car_expr))) {
+        // (car expr) is a keyword since founc in keyword table.
         ret = eval_builtin(pinfo, cdr(expr), env);
       } else {
-        ret = NULL;  // placeholder
+        LISP_VALUE *fn = env_fetch(car_expr, env);
+        if (NULL == fn) {
+          error("Variable not found: ");
+          print_lisp_value(fn, 1);
+        }
+        ret = eval_builtin(
       }
     } else {
       ret = NULL;  // placeholder
@@ -870,8 +877,7 @@ int main(
   LISP_VALUE *name;
   init_free_list();
   global_env = new_value(V_NIL);
-
-  print_lisp_value(global_env, 1);
+  install_builtin_fn("+", "add", fn_add, 2);
   for (;;) {
     expr = read_lisp_value();
     printf("unevaluated =>");
