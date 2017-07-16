@@ -124,7 +124,9 @@ char *strncpy_with_nul(
   while (*src && n > 0 && n_chars_copied < n) {
     *dest++ = *src++;
   }
-  *dest = '\0';
+  *dest = 0;
+  return
+
 }
 
 LISP_VALUE *create_symbol(
