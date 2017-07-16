@@ -688,7 +688,6 @@ BUILTIN_INFO builtin_list[] = {
 // Index of
 int builtin_index = 0;
 
-<<<<<<< HEAD
 #define SWITCH_16(v, m)                          \
   do {                                           \
     switch (v) {                                 \
