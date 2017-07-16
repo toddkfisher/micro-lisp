@@ -667,6 +667,31 @@ BUILTIN_INFO builtin_list[] = {
 
 int builtin_index = 0;
 
+#define SWITCH_16(v, m)                          \
+  do {                                           \
+    switch (v) {                                 \
+      case 0: m(0); break;                       \
+      case 1: m(1); break;                       \
+      case 2: m(2); break;                       \
+      case 3: m(3); break;                       \
+      case 4: m(4); break;                       \
+      case 5: m(5); break;                       \
+      case 6: m(6); break;                       \
+      case 7: m(7); break;                       \
+      case 8: m(8); break;                       \
+      case 9: m(9); break;                       \
+      case 10: m(10); break;                     \
+      case 11: m(11); break;                     \
+      case 12: m(12); break;                     \
+      case 13: m(13); break;                     \
+      case 14: m(14); break;                     \
+      case 15: m(15); break;                     \
+      case 16: m(16); break;                     \
+    }                                            \
+  } while (0)
+
+#define SET_BUILTIN_FN(n) builtin_list[builtin_index].builtin_fn_##n = (builtin_##n) fn;
+
 int install_builtin_fn(
   char *name,
   void *fn,
@@ -678,11 +703,7 @@ int install_builtin_fn(
     strcpy(builtin_list[builtin_index].name, name);
     builtin_list[builtin_index].type = BUILTIN_FUNCTION;
     builtin_list[builtin_index].n_args = n_args;
-    switch (n_args) {
-      case 0:
-        builtin_list[builtin_index].builtin_fn_0 = (builtin_0) fn;
-        break;
-    }
+    SWITCH_16(n_args, SET_BUILTIN_FN);
     val = create_builtin(&builtin_list[builtin_index]);
     builtin_index += 1;
     global_env_init(var_name, val);
@@ -724,24 +745,7 @@ LISP_VALUE *call_builtin(
   LISP_VALUE *env
 )
 {
-  switch (pinfo->n_args) {
-    CALL_BUILTIN_WITH_ARG_ARRAY(0)
-    CALL_BUILTIN_WITH_ARG_ARRAY(1)
-    CALL_BUILTIN_WITH_ARG_ARRAY(2)
-    CALL_BUILTIN_WITH_ARG_ARRAY(3)
-    CALL_BUILTIN_WITH_ARG_ARRAY(4)
-    CALL_BUILTIN_WITH_ARG_ARRAY(5)
-    CALL_BUILTIN_WITH_ARG_ARRAY(6)
-    CALL_BUILTIN_WITH_ARG_ARRAY(7)
-    CALL_BUILTIN_WITH_ARG_ARRAY(8)
-    CALL_BUILTIN_WITH_ARG_ARRAY(9)
-    CALL_BUILTIN_WITH_ARG_ARRAY(10)
-    CALL_BUILTIN_WITH_ARG_ARRAY(11)
-    CALL_BUILTIN_WITH_ARG_ARRAY(12)
-    CALL_BUILTIN_WITH_ARG_ARRAY(13)
-    CALL_BUILTIN_WITH_ARG_ARRAY(14)
-    CALL_BUILTIN_WITH_ARG_ARRAY(15)
-  }
+  SWITCH_16(pinfo->n_args, CALL_BUILTIN_WITH_ARG_ARRAY);
   return NULL;
 }
 
