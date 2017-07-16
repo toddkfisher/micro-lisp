@@ -8,7 +8,7 @@
 //------------------------------------------------------------------------------
 /// Globals
 
-// Array of values.  Everything gets stored in one (or more) of these.
+// Array of values.  This is the "source" for all LISP_VALUEs
 LISP_VALUE mem[MAX_VALUES];
 
 // Free list of cells from mem[].
@@ -19,7 +19,6 @@ int n_free_values = 0;
 
 // Stack of cells in mem[] for which may not be collected during GC.
 // Ancestors to values on protect_stack[] are also saved from collection.
-// Note that the global environment is also protected.
 LISP_VALUE *protect_stack[MAX_PROTECTED];
 int protect_stack_ptr = 0;
 
@@ -113,6 +112,19 @@ LISP_VALUE *create_intnum(
 LISP_VALUE *create_nil(void)
 {
   return new_value(V_NIL);
+}
+
+char *strncpy_with_nul(
+  char *dest,  // must be able to store at least 1 char (nul)
+  char *src,
+  int n
+)
+{
+  int n_chars_copied = 0;
+  while (*src && n > 0 && n_chars_copied < n) {
+    *dest++ = *src++;
+  }
+  *dest = '\0';
 }
 
 LISP_VALUE *create_symbol(
@@ -224,7 +236,11 @@ void skip_blanks(void)
 
 LISP_VALUE *read_atom(void)
 {
-  int n_char = 0, maybe_number = 1, sign = 1, intnum = 0, saw_digit = 0;
+  int n_char = 0;
+  int maybe_number = 1;
+  int sign = 1;
+  int intnum = 0;
+  int saw_digit = 0;
   LISP_VALUE *ret = new_value(V_ANY);
   while (IS_ATOM_CHAR(current_char)) {
     if (('+' == current_char) || '-' == current_char) {
@@ -275,7 +291,9 @@ LISP_VALUE *read_lisp_value(void)
 LISP_VALUE *read_list(void)
 {
   LISP_VALUE *ret = new_value(V_CONS_CELL);
-  LISP_VALUE *left, *right, *curr;
+  LISP_VALUE *left;
+  LISP_VALUE *right;
+  LISP_VALUE *curr;
   protect_from_gc(ret);
   nest_level += 1;
   next_char();  // skip '('
@@ -502,7 +520,8 @@ LISP_VALUE *env_extend(
   LISP_VALUE *outer_env
 )
 {
-  LISP_VALUE *part1, *part2;
+  LISP_VALUE *part1;
+  LISP_VALUE *part2;
   part1 = cons(var_value, outer_env);
   protect_from_gc(part1);
   part2 = cons(var_name, part1);
@@ -574,7 +593,8 @@ void global_env_extend(
   LISP_VALUE *value
 )
 {
-  LISP_VALUE *tmp0, *tmp1;
+  LISP_VALUE *tmp0;
+  LISP_VALUE *tmp1;
   protect_from_gc(name);  // name
   protect_from_gc(value); // value name
   tmp0 = cons(value, global_env->cdr->cdr);
@@ -665,8 +685,14 @@ BUILTIN_INFO builtin_list[] = {
   [MAX_BUILTINS - 1] = {"", BUILTIN_NOTUSED, -1, NULL}, // end of list marker
 };
 
+// Index of
 int builtin_index = 0;
 
+// This function exists because the "installation" of builtin functions
+// is slightly more complicated than simple array initialization which
+// is all that is required for builtin syntax.  Builtin functions must
+// be bound to a variable in the global environment (ex. "+" is bound to
+// fn_add()).
 int install_builtin_fn(
   char *name,
   void *fn,
@@ -674,13 +700,14 @@ int install_builtin_fn(
 )
 {
   if (builtin_index < MAX_BUILTINS - 1) {
-    LISP_VALUE *var_name = create_symbol("+"), val;
+    LISP_VALUE *var_name = create_symbol("+");
+    LISP_VALUE *val;
     strcpy(builtin_list[builtin_index].name, name);
     builtin_list[builtin_index].type = BUILTIN_FUNCTION;
     builtin_list[builtin_index].n_args = n_args;
     switch (n_args) {
       case 0:
-        builtin_list[builtin_index].builtin_fn_0 = (builtin_0) fn;
+        builtin_list[builtin_index].builtin_0 = (builtin_fn_0) fn;
         break;
     }
     val = create_builtin(&builtin_list[builtin_index]);
@@ -751,7 +778,10 @@ LISP_VALUE *eval_builtin(
   LISP_VALUE *env
 )
 {
-  LISP_VALUE *arg_array[16], *unevaled_arg, *passed_arg, *ret;
+  LISP_VALUE *arg_array[16];
+  LISP_VALUE *unevaled_arg;
+  LISP_VALUE *passed_arg;
+  LISP_VALUE *ret;
   int n_args, i_arg;
   n_args = pinfo->n_args;
   for (i_arg = 0; i_arg < n_args; ++i_arg) {
@@ -829,7 +859,9 @@ int main(
   char **argv
 )
 {
-  LISP_VALUE *expr, *value, *name;
+  LISP_VALUE *expr;
+  LISP_VALUE *value;
+  LISP_VALUE *name;
   init_free_list();
   global_env = new_value(V_NIL);
 
