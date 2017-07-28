@@ -38,33 +38,23 @@ int builtin_index = 0;
 //------------------------------------------------------------------------------
 /// Utility functions
 
-void error(
-  char *msg
-)
+void error(char *msg)
 {
   fprintf(stderr, "ERROR: %s\n", msg);
 }
 
-void fatal(
-  char *msg
-)
+void fatal(char *msg)
 {
   fprintf(stderr, "FATAL: %s\n", msg);
   exit(1);
 }
 
-int sym_eq(
-  LISP_VALUE *x,
-  LISP_VALUE *y
-)
+int sym_eq(LISP_VALUE *x, LISP_VALUE *y)
 {
   return STREQ(x->symbol, y->symbol);
 }
 
-LISP_VALUE *cons(
-  LISP_VALUE *x,
-  LISP_VALUE *y
-)
+LISP_VALUE *cons(LISP_VALUE *x, LISP_VALUE *y)
 {
   LISP_VALUE *res = new_value(V_CONS_CELL);
   res->car = x;
@@ -72,30 +62,22 @@ LISP_VALUE *cons(
   return res;
 }
 
-LISP_VALUE *car(
-  LISP_VALUE *x
-)
+LISP_VALUE *car(LISP_VALUE *x)
 {
   return x->car;
 }
 
-LISP_VALUE *cdr(
-  LISP_VALUE *x
-)
+LISP_VALUE *cdr(LISP_VALUE *x)
 {
   return x->cdr;
 }
 
-LISP_VALUE *cadr(
-  LISP_VALUE *x
-)
+LISP_VALUE *cadr(LISP_VALUE *x)
 {
   return x->cdr->car;
 }
 
-LISP_VALUE *caddr(
-  LISP_VALUE *x
-)
+LISP_VALUE *caddr(LISP_VALUE *x)
 {
   return x->cdr->cdr->car;
 }
@@ -103,9 +85,7 @@ LISP_VALUE *caddr(
 //------------------------------------------------------------------------------
 /// Value creation routines.
 
-LISP_VALUE *create_intnum(
-  int n
-)
+LISP_VALUE *create_intnum(int n)
 {
   LISP_VALUE *ret = new_value(V_INT);
   ret->intnum = n;
@@ -117,11 +97,8 @@ LISP_VALUE *create_nil(void)
   return new_value(V_NIL);
 }
 
-char *strncpy_with_nul(
-  char *dest,  // must be able to store at least 1 char (nul)
-  char *src,
-  int n
-)
+// must be able to store at least 1 char (nul) in *dest
+char *strncpy_with_nul(char *dest, char *src, int n)
 {
   int n_chars_copied = 0;
   while (*src && n > 0 && n_chars_copied < n) {
@@ -131,9 +108,7 @@ char *strncpy_with_nul(
   return dest;
 }
 
-LISP_VALUE *create_symbol(
-  char *name
-)
+LISP_VALUE *create_symbol(char *name)
 {
   LISP_VALUE *ret = new_value(V_SYMBOL);
   int n_chars_copied = 0;
@@ -144,9 +119,7 @@ LISP_VALUE *create_symbol(
   return ret;
 }
 
-LISP_VALUE *create_builtin(
-  BUILTIN_INFO *func_info
-)
+LISP_VALUE *create_builtin(BUILTIN_INFO *func_info)
 {
   LISP_VALUE *ret = new_value(V_BUILTIN);
   ret->func_info = func_info;
@@ -156,11 +129,8 @@ LISP_VALUE *create_builtin(
 //------------------------------------------------------------------------------
 /// Read/write routines
 
-void print_lisp_value_aux(
-  LISP_VALUE *val,
-  int nest_level,
-  int has_items_following
-)
+void print_lisp_value_aux(LISP_VALUE *val, int nest_level,
+                          int has_items_following)
 {
   if (NULL == val) {
     printf("<NULL>");
@@ -205,10 +175,7 @@ void print_lisp_value_aux(
   }
 }
 
-void print_lisp_value(
-  LISP_VALUE *val,
-  int print_newline
-)
+void print_lisp_value(LISP_VALUE *val, int print_newline)
 {
   print_lisp_value_aux(val, 0, 0);
   if (print_newline) {
@@ -370,19 +337,14 @@ void sweep(void)
   }
 }
 
-void indent(
-  int n
-)
+void indent(int n)
 {
   while (n-- > 0) {
     printf("    ");
   }
 }
 
-void gc_walk(
-  LISP_VALUE *v,
-  int depth
-)
+void gc_walk(LISP_VALUE *v, int depth)
 {
   if (NULL != v) {
     indent(depth);
@@ -446,9 +408,7 @@ void collect(void)
   }
 }
 
-void protect_from_gc(
-  LISP_VALUE *v
-)
+void protect_from_gc(LISP_VALUE *v)
 {
   protect_stack[protect_stack_ptr++] = v;
 }
@@ -476,9 +436,7 @@ void init_free_list(void)
   printf("Available values/cons cells = %d\n", n_free_values);
 }
 
-LISP_VALUE *new_value(
-  int value_type
-)
+LISP_VALUE *new_value(int value_type)
 {
   LISP_VALUE *ret = free_list_head;
   if (NULL == free_list_head) {
@@ -518,11 +476,8 @@ LISP_VALUE *new_value(
 // environment's cadr.
 //
 
-LISP_VALUE *env_extend(
-  LISP_VALUE *var_name,
-  LISP_VALUE *var_value,
-  LISP_VALUE *outer_env
-)
+LISP_VALUE *env_extend(LISP_VALUE *var_name, LISP_VALUE *var_value,
+                       LISP_VALUE *outer_env)
 {
   LISP_VALUE *part1;
   LISP_VALUE *part2;
@@ -533,10 +488,7 @@ LISP_VALUE *env_extend(
   return part2;
 }
 
-LISP_VALUE *env_search(
-  LISP_VALUE *name,
-  LISP_VALUE *env
-)
+LISP_VALUE *env_search(LISP_VALUE *name, LISP_VALUE *env)
 {
   if (!IS_TYPE(env, V_NIL)) {
     if (sym_eq(car(env), name)) {
@@ -548,10 +500,7 @@ LISP_VALUE *env_search(
   return NULL;
 }
 
-LISP_VALUE *env_fetch(
-  LISP_VALUE *name,
-  LISP_VALUE *env
-)
+LISP_VALUE *env_fetch(LISP_VALUE *name, LISP_VALUE *env)
 {
   LISP_VALUE *e = env_search(name, env);
   if (NULL != e) {
@@ -560,11 +509,7 @@ LISP_VALUE *env_fetch(
   return NULL;
 }
 
-int env_set(
-  LISP_VALUE *name,
-  LISP_VALUE *val,
-  LISP_VALUE *env
-)
+int env_set(LISP_VALUE *name, LISP_VALUE *val, LISP_VALUE *env)
 {
   LISP_VALUE *e = env_search(name, env);
   if (NULL != e) {
@@ -578,10 +523,7 @@ int env_set(
 // it modifies global_env and (an|the) outer environment of all closures
 // is global.  Also: this function does not prevent duplicate names
 // from being added to global_env.
-void global_env_init(
-  LISP_VALUE *name,
-  LISP_VALUE *value
-)
+void global_env_init(LISP_VALUE *name, LISP_VALUE *value)
 {
   LISP_VALUE *value_part;
   value_part = cons(value, global_env);
@@ -592,10 +534,7 @@ void global_env_init(
 
 // This function may be safely called after any closure creation.
 // global_env must contain at least one name/value pair.
-void global_env_extend(
-  LISP_VALUE *name,
-  LISP_VALUE *value
-)
+void global_env_extend(LISP_VALUE *name, LISP_VALUE *value)
 {
   LISP_VALUE *tmp0;
   LISP_VALUE *tmp1;
@@ -615,27 +554,18 @@ void global_env_extend(
 //------------------------------------------------------------------------------
 /// Built-in functions and syntax.
 
-LISP_VALUE *stx_dumpenv(
-  LISP_VALUE *env
-)
+LISP_VALUE *stx_dumpenv(LISP_VALUE *env)
 {
   print_lisp_value(env, 1);
   return env;
 }
 
-LISP_VALUE *stx_quote(
-  LISP_VALUE *arg,
-  LISP_VALUE *env
-)
+LISP_VALUE *stx_quote(LISP_VALUE *arg, LISP_VALUE *env)
 {
   return arg;
 }
 
-LISP_VALUE *stx_setq(
-  LISP_VALUE *name,
-  LISP_VALUE *val,
-  LISP_VALUE *env
-)
+LISP_VALUE *stx_setq(LISP_VALUE *name, LISP_VALUE *val, LISP_VALUE *env)
 {
   LISP_VALUE *curr_val = env_fetch(name, env);
   if (NULL == curr_val) {
@@ -653,11 +583,7 @@ LISP_VALUE *stx_setq(
   }
 }
 
-LISP_VALUE *fn_add(
-  LISP_VALUE *x,
-  LISP_VALUE *y,
-  LISP_VALUE *env
-)
+LISP_VALUE *fn_add(LISP_VALUE *x, LISP_VALUE *y, LISP_VALUE *env)
 {
   LISP_VALUE *res = new_value(V_INT);
   res->intnum = x->intnum + y->intnum;
@@ -719,12 +645,8 @@ BUILTIN_INFO builtin_list[] = {
 // is all that is required for builtin syntax.  Builtin functions must
 // be bound to a variable in the global environment (ex. "+" is bound to
 // fn_add()).
-int install_builtin_fn(
-  char *var_name,
-  char *descriptive_name,
-  void *fn,
-  int n_args
-)
+int install_builtin_fn(char *var_name, char *descriptive_name, void *fn,
+                       int n_args)
 {
   if (builtin_index < MAX_BUILTINS - 1) {
     LISP_VALUE *var = create_symbol(var_name);
@@ -741,12 +663,8 @@ int install_builtin_fn(
   return -1;
 }
 
-LISP_VALUE *check_arg(
-  BUILTIN_INFO *pinfo,
-  int i_arg,
-  LISP_VALUE *unevaled_arg,
-  LISP_VALUE *env
-)
+LISP_VALUE *check_arg(BUILTIN_INFO *pinfo, int i_arg, LISP_VALUE *unevaled_arg,
+                      LISP_VALUE *env)
 {
   LISP_VALUE *evaluated_arg;
   if (ARG_UNEVALED == pinfo->arg_types[2*i_arg]) {
@@ -768,21 +686,15 @@ LISP_VALUE *check_arg(
   return NULL;
 }
 
-LISP_VALUE *call_builtin(
-  BUILTIN_INFO *pinfo,
-  LISP_VALUE *args[],
-  LISP_VALUE *env
-)
+LISP_VALUE *call_builtin(BUILTIN_INFO *pinfo, LISP_VALUE *args[],
+                         LISP_VALUE *env)
 {
   SWITCH_16(pinfo->n_args, CALL_BUILTIN_WITH_ARG_ARRAY);
   return NULL;
 }
 
-LISP_VALUE *eval_builtin(
-  BUILTIN_INFO *pinfo,
-  LISP_VALUE *arglist,
-  LISP_VALUE *env
-)
+LISP_VALUE *eval_builtin(BUILTIN_INFO *pinfo, LISP_VALUE *arglist,
+                         LISP_VALUE *env)
 {
   LISP_VALUE *arg_array[16];
   LISP_VALUE *unevaled_arg;
@@ -812,9 +724,7 @@ LISP_VALUE *eval_builtin(
   return ret;
 }
 
-BUILTIN_INFO *get_keyword_info(
-  LISP_VALUE *kw_sym
-)
+BUILTIN_INFO *get_keyword_info(LISP_VALUE *kw_sym)
 {
   int i;
   for (i = 0; i < builtin_index; ++i) {
@@ -826,10 +736,7 @@ BUILTIN_INFO *get_keyword_info(
   return NULL;
 }
 
-LISP_VALUE *eval(
-  LISP_VALUE *expr,
-  LISP_VALUE *env
-)
+LISP_VALUE *eval(LISP_VALUE *expr, LISP_VALUE *env)
 {
   LISP_VALUE *ret = NULL;
   protect_from_gc(expr);
@@ -867,10 +774,7 @@ LISP_VALUE *eval(
   return ret;
 }
 
-int main(
-  int argc,
-  char **argv
-)
+int main(int argc, char **argv)
 {
   LISP_VALUE *expr;
   LISP_VALUE *value;
