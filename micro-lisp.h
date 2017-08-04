@@ -24,7 +24,7 @@ struct _LISP_VALUE {
     // V_INT
     int intnum;
     // V_SYMBOL
-    // Symbol names occupy the same size as to pointers.
+    // Symbol names occupy the same size as two pointers.
 #   define SYM_SIZE (2*sizeof(void *))
     char symbol[SYM_SIZE];
     // V_CONS_CELL

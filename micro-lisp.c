@@ -724,7 +724,7 @@ LISP_VALUE *eval_builtin(BUILTIN_INFO *pinfo, LISP_VALUE *arglist,
   return ret;
 }
 
-BUILTIN_INFO *get_keyword_info(LISP_VALUE *kw_sym)
+BUILTIN_INFO *get_builtin_info(LISP_VALUE *kw_sym)
 {
   int i;
   for (i = 0; i < builtin_index; ++i) {
@@ -736,42 +736,68 @@ BUILTIN_INFO *get_keyword_info(LISP_VALUE *kw_sym)
   return NULL;
 }
 
+int is_syntax(LISP_VALUE *expr)
+{
+  BUILTIN_INFO *pinfo;
+  LISP_VALUE *car_expr;
+  printf("entered is_syntax()\n");
+  // to be syntax, expr must be: (<symbol> ...) and <symbol> must exist in
+  // the builtin_list[] with type == BUILTIN_SYNTAX
+  if (!IS_TYPE(expr, V_CONS_CELL)) {
+    return 0;
+  }
+  car_expr = car(expr);
+  print_lisp_value(car(expr), 1);
+  if (!IS_TYPE(car_expr, V_SYMBOL)) {
+    return 0;
+  }
+  if (NULL == (pinfo = get_builtin_info(car_expr))) {
+    return 0;
+  }
+  printf("pinfo->type == %d\n", pinfo->type);
+  return BUILTIN_SYNTAX == pinfo->type;
+}
+
+LISP_VALUE *eval_application(LISP_VALUE *expr, LISP_VALUE *env)
+{
+  return NULL;
+}
+
 LISP_VALUE *eval(LISP_VALUE *expr, LISP_VALUE *env)
 {
   LISP_VALUE *ret = NULL;
-  protect_from_gc(expr);
-  if (IS_SELF_EVAUATING(expr)) {
-    ret = expr;
-  } else if (IS_TYPE(expr, V_SYMBOL)) {
-    if (NULL == (ret = env_fetch(expr, env))) {
-      error("Variable not found: ");
-      print_lisp_value(expr, 1);
+  if (NULL != expr) {
+    protect_from_gc(expr);
+    if (IS_SELF_EVAUATING(expr)) {
+      ret = expr;
+    } else if (IS_TYPE(expr, V_SYMBOL)) {
+      ret = eval_var(expr, env);
+    } else if (is_syntax(expr)) {
+      eval_syntax(expr, env);
+    } else if (IS_TYPE(expr, V_CONS_CELL)) {
+      eval_application(expr, env);
     }
-  } else if (IS_TYPE(expr, V_CONS_CELL)) {
-    // function call or syntax.
-    LISP_VALUE *car_expr = car(expr);
-    if (IS_TYPE(car_expr, V_SYMBOL)) {
-      // keyword (syntax) or variable holding either:
-      // (1) builtin (gets evaluated by name)
-      // (2) user-defined function
-      BUILTIN_INFO *pinfo;
-      if (NULL != (pinfo = get_keyword_info(car_expr))) {
-        // (car expr) is a keyword since founc in keyword table.
-        ret = eval_builtin(pinfo, cdr(expr), env);
-      } else {
-        LISP_VALUE *fn = env_fetch(car_expr, env);
-        if (NULL == fn) {
-          error("Variable not found: ");
-          print_lisp_value(fn, 1);
-        }
-        ret = eval_builtin(
-      }
-    } else {
-      ret = NULL;  // placeholder
-    }
+    unprotect_from_gc();
+    fatal("Unknown form.");
   }
-  unprotect_from_gc();
   return ret;
+}
+
+LISP_VALUE *eval_var(LISP_VALUE *expr, LISP_VALUE *env)
+{
+  LISP_VALUE *ret = NULL;
+  if (NULL == (ret = env_fetch(expr, env))) {
+    error("Variable not found: ");
+    print_lisp_value(expr, 1);
+  }
+  return ret;
+}
+
+LISP_VALUE *eval_syntax(LISP_VALUE *expr, LISP_VALUE *env)
+{
+  BUILTIN_INFO *pinfo = get_builtin_info(car(expr));
+  // since expr passed is_syntax() we know NULL != pinfo
+  return eval_builtin(pinfo, cdr(expr), env);
 }
 
 int main(int argc, char **argv)
