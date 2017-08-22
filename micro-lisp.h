@@ -10,14 +10,14 @@ enum LISP_TYPE {
   V_UNALLOCATED = 0x40
 };
 
-#define V_ANY (V_INT | V_SYMBOL | V_CONS_CELL | V_CLOSURE | V_NIL)
+#define V_ANY (V_INT | V_SYMBOL | V_CONS_CELL | V_CLOSURE | V_NIL | V_BUILTIN)
 
-typedef struct _BUILTIN_INFO BUILTIN_INFO;
-typedef struct _LISP_VALUE LISP_VALUE;
+TDS(LISP_VALUE);
+TDS(BUILTIN_INFO);
 
 #include "builtin-macros.h"
 
-struct _LISP_VALUE {
+struct LISP_VALUE {
   unsigned gc_mark;
   unsigned value_type;
   union {
@@ -28,18 +28,23 @@ struct _LISP_VALUE {
 #   define SYM_SIZE (2*sizeof(void *))
     char symbol[SYM_SIZE];
     // V_CONS_CELL
-    struct { struct _LISP_VALUE *car, *cdr; };
+    struct {
+      struct LISP_VALUE *car;
+      struct LISP_VALUE *cdr;
+    };
     // V_CLOSURE
-    struct { struct _LISP_VALUE *env, *code; };
+    struct {
+      struct LISP_VALUE *env;
+      struct LISP_VALUE *code;
+    };
     // V_BUILTIN
     BUILTIN_INFO *func_info;
     // V_UNALLOCATED
-    struct _LISP_VALUE *next_free;
+    struct LISP_VALUE *next_free;
   };
 };
 
-
-#define IS_TYPE(val, type) ((val)->value_type & type)
+#define IS_TYPE(val, type) (NULL != (val) && ((val)->value_type & type))
 
 #define IS_ATOM(val) (IS_TYPE(val, V_INT) || IS_TYPE(val, V_SYMBOL) ||  \
                       IS_TYPE(val, V_NIL))
@@ -82,8 +87,12 @@ struct _LISP_VALUE {
 // size of protect_stack[]
 #define MAX_PROTECTED 1024
 
-// Maximum number of built-in keywords(symtax) and functions.
+// Maximum number of built-in keywords(syntax) and functions.
 #define MAX_BUILTINS 128
+
+// Number of syntax keywords.  Non-syntax builtins go into builtin_info[]
+// following these.
+#define N_SYNTAX_KEYWORDS 4
 
 // Maximum number of arguments a built-in keyword or function
 // may have.
@@ -95,7 +104,7 @@ enum {
   BUILTIN_NOTUSED
 };
 
-struct _BUILTIN_INFO {
+struct BUILTIN_INFO {
   char name[SYM_SIZE];
   int type;
   int n_args;
