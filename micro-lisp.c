@@ -678,7 +678,7 @@ int install_builtin_fn(char *var_name, char *descriptive_name, void *fn,
     val = create_builtin(&builtin_list[builtin_index]);
     builtin_index += 1;
     global_env_init(var, val);
-    return builtin_index;
+    return builtin_index - 1;
   }
   return -1;
 }
@@ -687,6 +687,8 @@ LISP_VALUE *check_arg(BUILTIN_INFO *pinfo, int i_arg, LISP_VALUE *unevaled_arg,
                       LISP_VALUE *env)
 {
   LISP_VALUE *evaluated_arg;
+  int expected_arg_type;
+  char buf[1024];
   if (ARG_UNEVALED == pinfo->arg_types[2*i_arg]) {
     if (!IS_TYPE(unevaled_arg, pinfo->arg_types[2*i_arg + 1])) {
       error("Incorrect argument type to function.");
@@ -699,22 +701,28 @@ LISP_VALUE *check_arg(BUILTIN_INFO *pinfo, int i_arg, LISP_VALUE *unevaled_arg,
     }
     expected_arg_type = pinfo->arg_types[2*i_arg + 1];
     if (!IS_TYPE(evaluated_arg, expected_arg_type)) {
-      error("Argument %d in builtin function %s.\n", i_arg, pinfo->name);
+      sprintf(buf, "Argument %d in builtin function %s.\n", i_arg, pinfo->name);
+      error(buf);
       error("Incorrect argument type to function.");
       error("Expected:");
-      switch (expected_arg_type) {
-        case V_INT:
-          error("Integer");
-          break;
-        case V_SYMBOL:
-        case V_CONS_CELL:
-        case V_CLOSURE:
-        case V_NIL:
-        case V_BUILTIN:
-
-
-
-
+      if (expected_arg_type & V_INT) {
+        error("Integer");
+      }
+      if (expected_arg_type & V_SYMBOL) {
+        error("Symbol");
+      }
+      if (expected_arg_type & V_CONS_CELL) {
+        error("Cons");
+      }
+      if (expected_arg_type & V_CLOSURE) {
+        error("Closure");
+      }
+      if (expected_arg_type & V_NIL) {
+        error("Nil");
+      }
+      if (expected_arg_type & V_BUILTIN) {
+        error("Builtin");
+      }
       return NULL;
     }
     return evaluated_arg;
@@ -871,6 +879,7 @@ int main(int argc, char **argv)
   init_free_list();
   global_env = new_value(V_NIL);
   idx = install_builtin_fn("+", "add", fn_add, 2);
+  DBG_FN_PRINT_VAR(idx, "%d");
   set_builtin_arg_info(idx, 0, ARG_EVALED, V_INT);
   set_builtin_arg_info(idx, 1, ARG_EVALED, V_INT);
   for (;;) {
