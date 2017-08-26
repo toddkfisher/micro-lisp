@@ -683,15 +683,45 @@ int install_builtin_fn(char *var_name, char *descriptive_name, void *fn,
   return -1;
 }
 
+char *type_name(int t)
+{
+  switch (t) {
+    case V_INT:
+      return "integer";
+    case V_SYMBOL:
+      return "symbol";
+    case V_CONS_CELL:
+      return "cons";
+    case V_CLOSURE:
+      return "closure";
+    case V_NIL:
+      return "nil";
+    case V_BUILTIN:
+      return "builtin";
+    default:
+      return "unknown";
+  }
+}
+
+void arg_type_error(char *fn_name, int i_arg, LISP_VALUE *arg, int expected_type)
+{
+  printf("ERROR: incorrect type to argument %d of %s\n"
+         "       expected: %s\n"
+         "       recieved: %s\n"
+         "       value is: ", i_arg, fn_name, type_name(expected_type),
+         type_name(arg->value_type));
+  print_lisp_value(arg, 1);
+}
+
 LISP_VALUE *check_arg(BUILTIN_INFO *pinfo, int i_arg, LISP_VALUE *unevaled_arg,
                       LISP_VALUE *env)
 {
   LISP_VALUE *evaluated_arg;
   int expected_arg_type;
-  char buf[1024];
+  expected_arg_type = pinfo->arg_types[2*i_arg + 1];
   if (ARG_UNEVALED == pinfo->arg_types[2*i_arg]) {
-    if (!IS_TYPE(unevaled_arg, pinfo->arg_types[2*i_arg + 1])) {
-      error("Incorrect argument type to function.");
+    if (!IS_TYPE(unevaled_arg, expected_arg_type)) {
+      arg_type_error(pinfo->name, i_arg, unevaled_arg, expected_arg_type);
       return NULL;
     }
     return unevaled_arg;
@@ -699,30 +729,8 @@ LISP_VALUE *check_arg(BUILTIN_INFO *pinfo, int i_arg, LISP_VALUE *unevaled_arg,
     if (NULL == (evaluated_arg = eval(unevaled_arg, env))) {
       return NULL;
     }
-    expected_arg_type = pinfo->arg_types[2*i_arg + 1];
     if (!IS_TYPE(evaluated_arg, expected_arg_type)) {
-      sprintf(buf, "Argument %d in builtin function %s.\n", i_arg, pinfo->name);
-      error(buf);
-      error("Incorrect argument type to function.");
-      error("Expected:");
-      if (expected_arg_type & V_INT) {
-        error("Integer");
-      }
-      if (expected_arg_type & V_SYMBOL) {
-        error("Symbol");
-      }
-      if (expected_arg_type & V_CONS_CELL) {
-        error("Cons");
-      }
-      if (expected_arg_type & V_CLOSURE) {
-        error("Closure");
-      }
-      if (expected_arg_type & V_NIL) {
-        error("Nil");
-      }
-      if (expected_arg_type & V_BUILTIN) {
-        error("Builtin");
-      }
+      arg_type_error(pinfo->name, i_arg, evaluated_arg, expected_arg_type);
       return NULL;
     }
     return evaluated_arg;
