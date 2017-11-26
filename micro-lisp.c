@@ -158,7 +158,7 @@ void print_lisp_value_aux(LISP_VALUE *val, int nest_level,
       printf(")");
       break;
     case V_CLOSURE:
-      printf("#<CLOSURE: %p, %p, %p>", val->arg_list, val->code, val->env);
+      printf("#<CLOSURE: %p, %p, %p>", val->arg_names, val->code, val->env);
       break;
     case V_NIL:
       if (nest_level > 0) {
@@ -587,24 +587,22 @@ LISP_VALUE *stx_quote(LISP_VALUE *arg, LISP_VALUE *env)
 
 LISP_VALUE *stx_closure(LISP_VALUE *clo_expr, LISP_VALUE *env)
 {
-  LISP_VALUE *arg_list;
+  LISP_VALUE *arg_names;
   LISP_VALUE *ret;
   LISP_VALUE *args;
-  arg_list = car(clo_expr);
-  if (!IS_TYPE(arg_list, V_CONS_CELL)) {
+  arg_names = car(clo_expr);
+  if (!IS_TYPE(arg_names, V_CONS_CELL)) {
     error("Argument list to closure should be () or (arg ...)");
-    print_lisp_value(clo_expr, 1);
-    print_lisp_value(arg_list, 1);
     return NULL;
   }
-  FOR_LIST(args, arg_list) {
+  FOR_LIST(args, arg_names) {
     if (!IS_TYPE(car(args), V_SYMBOL)) {
       error("Argument names for closure should be symbols.");
       return NULL;
     }
   }
   ret = new_value(V_CLOSURE);
-  ret->arg_list = arg_list;
+  ret->arg_names = arg_names;
   ret->env = env;
   ret->code = cdr(clo_expr);
   return ret;
@@ -860,6 +858,29 @@ int is_syntax(LISP_VALUE *expr)
   return BUILTIN_SYNTAX == pinfo->type;
 }
 
+// LISP_VALUE eval_seq(LISP_VALUE *seq, LISP_VALUE *env)
+// {
+//   LISP_VALUE ret;
+//   if (IS_TYPE(seq, V_NIL)) {
+//     ret = the_nil_value;
+//   } else {
+//
+//
+// LISP_VALUE eval_closure_application(LISP_VALUE *clo, LISP_VALUE *arg_list,
+//                                     LISP_VALUE *env)
+// {
+//   if (IS_TYPE(arg_list, V_CONS_CELL)) {
+//     FOR_LIST(args, clo->arg_names) {
+//       evaled_arg =
+//     }
+//   } else if (IS_TYPE(arg_list, V_NIL)) {
+//     ret = new_value(V_NIL);
+//   } else {
+//     error("Dotted pair used as argument.");
+//     return NULL;
+//   }
+// }
+
 LISP_VALUE *eval_application(LISP_VALUE *expr, LISP_VALUE *env)
 {
   LISP_VALUE *fn;
@@ -870,7 +891,7 @@ LISP_VALUE *eval_application(LISP_VALUE *expr, LISP_VALUE *env)
   if (IS_TYPE(fn, V_BUILTIN)) {
     ret = eval_builtin(fn->func_info, cdr(expr), env);
   } else if (IS_TYPE(fn, V_CLOSURE)) {
-    ret = eval_closure_application(fn, cdr(expr), env);
+    //ret = eval_closure_application(fn, cdr(expr), env);
   } else {
     error("Application of non-closure.\n");
   }
