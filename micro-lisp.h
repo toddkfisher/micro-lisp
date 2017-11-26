@@ -34,6 +34,7 @@ struct LISP_VALUE {
     };
     // V_CLOSURE
     struct {
+      struct LISP_VALUE *arg_list;
       struct LISP_VALUE *env;
       struct LISP_VALUE *code;
     };

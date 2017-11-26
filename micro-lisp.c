@@ -34,7 +34,7 @@ int nest_level = 0;
 LISP_VALUE *global_env;
 
 // Index of next function to be placed into builtin_list[].
-int builtin_index = 3;
+int builtin_index = N_SYNTAX_KEYWORDS;
 
 //------------------------------------------------------------------------------
 /// Utility
@@ -158,7 +158,7 @@ void print_lisp_value_aux(LISP_VALUE *val, int nest_level,
       printf(")");
       break;
     case V_CLOSURE:
-      printf("#<CLOSURE: %p, %p>", val->code, val->env);
+      printf("#<CLOSURE: %p, %p, %p>", val->arg_list, val->code, val->env);
       break;
     case V_NIL:
       if (nest_level > 0) {
@@ -585,6 +585,32 @@ LISP_VALUE *stx_quote(LISP_VALUE *arg, LISP_VALUE *env)
   return arg;
 }
 
+LISP_VALUE *stx_closure(LISP_VALUE *clo_expr, LISP_VALUE *env)
+{
+  LISP_VALUE *arg_list;
+  LISP_VALUE *ret;
+  LISP_VALUE *args;
+  arg_list = car(clo_expr);
+  if (!IS_TYPE(arg_list, V_CONS_CELL)) {
+    error("Argument list to closure should be () or (arg ...)");
+    print_lisp_value(clo_expr, 1);
+    print_lisp_value(arg_list, 1);
+    return NULL;
+  }
+  FOR_LIST(args, arg_list) {
+    if (!IS_TYPE(car(args), V_SYMBOL)) {
+      error("Argument names for closure should be symbols.");
+      return NULL;
+    }
+  }
+  ret = new_value(V_CLOSURE);
+  ret->arg_list = arg_list;
+  ret->env = env;
+  ret->code = cdr(clo_expr);
+  return ret;
+}
+
+
 LISP_VALUE *stx_setq(LISP_VALUE *name, LISP_VALUE *val, LISP_VALUE *env)
 {
   LISP_VALUE *curr_val = env_fetch(name, env);
@@ -631,6 +657,13 @@ BUILTIN_INFO builtin_list[] = {
     .type      = BUILTIN_SYNTAX,
     .builtin_0 = stx_dumpenv,
     .n_args    = 0
+  },
+  [3] = {
+    .name      = "fn",
+    .type      = BUILTIN_SYNTAX,
+    .n_args    = -1,
+    .builtin_1 = stx_closure,
+    ARG_UNEVALED, V_CONS_CELL
   },
   [MAX_BUILTINS - 1] = {"", BUILTIN_NOTUSED, -1, NULL}, // end of list marker
 };
@@ -741,7 +774,8 @@ LISP_VALUE *check_arg(BUILTIN_INFO *pinfo, int i_arg, LISP_VALUE *unevaled_arg,
 LISP_VALUE *call_builtin(BUILTIN_INFO *pinfo, LISP_VALUE *args[],
                          LISP_VALUE *env)
 {
-  SWITCH_16(pinfo->n_args, CALL_BUILTIN_WITH_ARG_ARRAY);
+  int n_args = pinfo->n_args < 0 ? 1 : pinfo->n_args;
+  SWITCH_16(n_args, CALL_BUILTIN_WITH_ARG_ARRAY);
   return NULL;
 }
 
@@ -835,6 +869,10 @@ LISP_VALUE *eval_application(LISP_VALUE *expr, LISP_VALUE *env)
   protect_from_gc(fn);
   if (IS_TYPE(fn, V_BUILTIN)) {
     ret = eval_builtin(fn->func_info, cdr(expr), env);
+  } else if (IS_TYPE(fn, V_CLOSURE)) {
+    ret = eval_closure_application(fn, cdr(expr), env);
+  } else {
+    error("Application of non-closure.\n");
   }
   unprotect_from_gc();
   return ret;
@@ -851,6 +889,7 @@ LISP_VALUE *eval(LISP_VALUE *expr, LISP_VALUE *env)
       ret = eval_var(expr, env);
     } else if (is_syntax(expr)) {
       ret = eval_syntax(expr, env);
+      print_lisp_value(ret, 1);
     } else if (IS_TYPE(expr, V_CONS_CELL)) {
       ret = eval_application(expr, env);
     } else {

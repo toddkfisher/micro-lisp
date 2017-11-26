@@ -2,6 +2,9 @@
 
 #define TDS(t) typedef struct t t
 
+#define FOR_LIST(var, expr) \
+  for (var = expr; IS_TYPE(var, V_CONS_CELL); var = cdr(var))
+
 #ifdef DEBUG
 #define DBG_MSG(msg) printf("! " msg "\n");
 
